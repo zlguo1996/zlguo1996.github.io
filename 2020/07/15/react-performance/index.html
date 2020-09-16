@@ -23,20 +23,20 @@
   <meta name="description" content="In our jitsi-party project, participants store have nested data structure for UI to render. For example,  pariticpants - some participant - pose - position. In prototype 1, We’ve found that naive way">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Participants Store - React Performance Optimization Practice">
-<meta property="og:url" content="http://yoursite.com/2020/07/15/performance/index.html">
+<meta property="og:url" content="http://yoursite.com/2020/07/15/react-performance/index.html">
 <meta property="og:site_name" content="Zile GUO">
 <meta property="og:description" content="In our jitsi-party project, participants store have nested data structure for UI to render. For example,  pariticpants - some participant - pose - position. In prototype 1, We’ve found that naive way">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="http://yoursite.com/2020/07/15/performance/RenderPerformance3.png">
-<meta property="og:image" content="http://yoursite.com/2020/07/15/performance/RenderPerformance2.png">
-<meta property="og:image" content="http://yoursite.com/2020/07/15/performance/RenderPerformance1.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/15/react-performance/RenderPerformance3.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/15/react-performance/RenderPerformance2.png">
+<meta property="og:image" content="http://yoursite.com/2020/07/15/react-performance/RenderPerformance1.png">
 <meta property="article:published_time" content="2020-07-15T11:23:50.000Z">
-<meta property="article:modified_time" content="2020-07-15T12:24:17.845Z">
+<meta property="article:modified_time" content="2020-07-16T02:26:08.963Z">
 <meta property="article:author" content="Zile GUO">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://yoursite.com/2020/07/15/performance/RenderPerformance3.png">
+<meta name="twitter:image" content="http://yoursite.com/2020/07/15/react-performance/RenderPerformance3.png">
 
-<link rel="canonical" href="http://yoursite.com/2020/07/15/performance/">
+<link rel="canonical" href="http://yoursite.com/2020/07/15/react-performance/">
 
 
 <script id="page-configurations">
@@ -154,7 +154,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/15/performance/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/15/react-performance/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -176,10 +176,16 @@
                 <i class="fa fa-calendar-o"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
-              
 
-              <time title="Created: 2020-07-15 20:23:50 / Modified: 21:24:17" itemprop="dateCreated datePublished" datetime="2020-07-15T20:23:50+09:00">2020-07-15</time>
+              <time title="Created: 2020-07-15 20:23:50" itemprop="dateCreated datePublished" datetime="2020-07-15T20:23:50+09:00">2020-07-15</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-07-16 11:26:08" itemprop="dateModified" datetime="2020-07-16T11:26:08+09:00">2020-07-16</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="fa fa-folder-o"></i>
@@ -220,13 +226,13 @@
 <p>We want to render participants list into UI. If we change only one participants’ position, let’s see how it would works:</p>
 <ol>
 <li><p>If we use props to pass the change from root node, a lot of computation time would be wasted on reconciling and rendering the data that did not change:</p>
-<img src="/2020/07/15/performance/RenderPerformance3.png" class="" title="Render Performance 3">
+<img src="/2020/07/15/react-performance/RenderPerformance3.png" class="" title="Render Performance 3">
 </li>
 <li><p>To avoid re-rendering on sibling nodes (yellow ones on the upper image), we can use <code>useMemo</code> hook to remember the participant node. Only re-render it  when the id of participant have changed (add / delete).</p>
- <img src="/2020/07/15/performance/RenderPerformance2.png" class="" title="Render Performance 2">
+ <img src="/2020/07/15/react-performance/RenderPerformance2.png" class="" title="Render Performance 2">
 </li>
 <li><p>If we connect every participant directly to the store (connect to MobX using <code>useContext</code> hook), parent nodes would not be reconciliated.</p>
-<img src="/2020/07/15/performance/RenderPerformance1.png" class="" title="Render Performance 1">
+<img src="/2020/07/15/react-performance/RenderPerformance1.png" class="" title="Render Performance 1">
 
 </li>
 </ol>
@@ -261,6 +267,13 @@
 
 
         
+    <div class="post-nav">
+      <div class="post-nav-item"></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/16/merge-data/" rel="next" title="Shared Contents Store - Merge Data with No Web Server">
+      Shared Contents Store - Merge Data with No Web Server <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
       </footer>
     
   </article>
@@ -332,12 +345,12 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">1</span>
+          <span class="site-state-item-count">3</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
-        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-count">3</span>
         <span class="site-state-item-name">categories</span>
       </div>
   </nav>
