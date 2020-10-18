@@ -145,6 +145,96 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/10/18/animated-react-native/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Zile GUO">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Zile GUO">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2020/10/18/animated-react-native/" class="post-title-link" itemprop="url">Animated in React Native</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2020-10-18 21:57:39 / Modified: 23:18:24" itemprop="dateCreated datePublished" datetime="2020-10-18T21:57:39+08:00">2020-10-18</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/" itemprop="url" rel="index"><span itemprop="name">code</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/" itemprop="url" rel="index"><span itemprop="name">frontend</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/native/" itemprop="url" rel="index"><span itemprop="name">native</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h2 id="Motivation"><a href="#Motivation" class="headerlink" title="Motivation"></a>Motivation</h2><p>在学习React Native动画的时候，看到了这段<a href="https://zhuanlan.zhihu.com/p/103293495" target="_blank" rel="noopener">使用Animated的基础代码</a>。可以看到这段代码并不使用<code>setState</code>来更新状态以实现动画效果。在本文中，笔者将会总结博客和源码中的相关资料，以期了解这段代码的实现原理。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> FadeInView = <span class="function">(<span class="params">props</span>) =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">const</span> fadeAnim = useRef(<span class="keyword">new</span> Animated.Value(<span class="number">0</span>)).current  <span class="comment">// 透明度初始值设为0</span></span><br><span class="line"></span><br><span class="line">  React.useEffect(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    Animated.timing(                  <span class="comment">// 随时间变化而执行动画</span></span><br><span class="line">      fadeAnim,                       <span class="comment">// 动画中的变量值</span></span><br><span class="line">      &#123;</span><br><span class="line">        toValue: <span class="number">1</span>,                   <span class="comment">// 透明度最终变为1，即完全不透明</span></span><br><span class="line">        duration: <span class="number">10000</span>,              <span class="comment">// 让动画持续一段时间</span></span><br><span class="line">      &#125;</span><br><span class="line">    ).start()                      <span class="comment">// 开始执行动画</span></span><br><span class="line">  &#125;, [fadeAnim])</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> (</span><br><span class="line">    &lt;Animated.View                 <span class="comment">// 使用专门的可动画化的View组件</span></span><br><span class="line">      style=&#123;&#123;</span><br><span class="line">        ...props.style,</span><br><span class="line">        opacity: fadeAnim,         <span class="comment">// 将透明度绑定到动画变量值</span></span><br><span class="line">      &#125;&#125;</span><br><span class="line">    &gt;</span><br><span class="line">      &#123;props.children&#125;</span><br><span class="line">    &lt;<span class="regexp">/Animated.View&gt;</span></span><br><span class="line"><span class="regexp">  )</span></span><br><span class="line"><span class="regexp">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="Do-Work-in-JS-Native-Driver-Animations"><a href="#Do-Work-in-JS-Native-Driver-Animations" class="headerlink" title="Do Work in JS || Native Driver Animations"></a>Do Work in JS || Native Driver Animations</h2><p>在<a href="https://www.freecodecamp.org/news/how-react-native-animations-work/" target="_blank" rel="noopener">这篇文章</a>里提到了Animated的两种计算动画的方式和对应的优劣。</p>
+<ol>
+<li>在JS线程中使用<code>requestAnimationFrame</code>计算动画参数，并使用Bridge将数据传输给原生代码</li>
+<li>在动画开始前通过Bridge直接将动画信息传输给原生代码，由UI线程来计算动画参数</li>
+</ol>
+<p>可以看到使用<a href="https://ui.dev/imperative-vs-declarative-programming/" target="_blank" rel="noopener">声明式的代码</a>的方式定义动画便于使用UI线程来提高性能。<br>同时，不论是1还是2，都是由UI线程来渲染原生视图，因此可以跳过频繁的<code>setState</code>和<code>render</code>来提高性能。</p>
+<h2 id="Source-Code"><a href="#Source-Code" class="headerlink" title="Source Code"></a>Source Code</h2><h3 id="Animated-Value"><a href="#Animated-Value" class="headerlink" title="Animated.Value"></a>Animated.Value</h3><p>在<a href="https://github.com/facebook/react-native" target="_blank" rel="noopener">react-native库</a>的<code>Libraries/Animated/nodes/AnimatedValue.js</code>文件中描述了Animated.Value是如何工作的：<br>Animated构建了一个依赖的有向无环图。view属性的计算包含了两个阶段：</p>
+<ol>
+<li>Top Down Phase<br>当Animated.Value被更新的时候，它会寻找并标记叶节点：即需要更新的view</li>
+<li>Bottom Up Phase<br>从被标记的叶节点回溯，以此得到它所需的value。（这么做的原因是某些view的属性可能是由多个value组合而成，如：transform）</li>
+</ol>
+<h3 id="Animated-Component"><a href="#Animated-Component" class="headerlink" title="Animated.[Component]"></a>Animated.[Component]</h3><p>在<code>Libraries\Animated\createAnimatedComponent.js</code>文件中，可以看到在mount/update的时候，使用<code>this._propsAnimated.setNativeView</code>为AnimatedProps绑定了component。同时在<code>Libraries\Animated\nodes\AnimatedProps.js</code>文件中，使用<code>__connectAnimatedView</code>函数通过native tag标识将动画节点与对应的native view相连。</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/09/16/data-validation/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -170,7 +260,7 @@
               <span class="post-meta-item-text">Posted on</span>
               
 
-              <time title="Created: 2020-09-16 22:04:29 / Modified: 23:02:50" itemprop="dateCreated datePublished" datetime="2020-09-16T22:04:29+09:00">2020-09-16</time>
+              <time title="Created: 2020-09-16 21:04:29 / Modified: 22:02:50" itemprop="dateCreated datePublished" datetime="2020-09-16T21:04:29+08:00">2020-09-16</time>
             </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -257,14 +347,14 @@ For details in the URI parameter of <code>ajv.getSchema</code> function, please 
               </span>
               <span class="post-meta-item-text">Posted on</span>
 
-              <time title="Created: 2020-07-16 11:25:59" itemprop="dateCreated datePublished" datetime="2020-07-16T11:25:59+09:00">2020-07-16</time>
+              <time title="Created: 2020-07-16 10:25:59" itemprop="dateCreated datePublished" datetime="2020-07-16T10:25:59+08:00">2020-07-16</time>
             </span>
               <span class="post-meta-item">
                 <span class="post-meta-item-icon">
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2020-09-16 23:04:05" itemprop="dateModified" datetime="2020-09-16T23:04:05+09:00">2020-09-16</time>
+                <time title="Modified: 2020-09-16 22:04:05" itemprop="dateModified" datetime="2020-09-16T22:04:05+08:00">2020-09-16</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -335,14 +425,14 @@ For details in the URI parameter of <code>ajv.getSchema</code> function, please 
               </span>
               <span class="post-meta-item-text">Posted on</span>
 
-              <time title="Created: 2020-07-15 20:23:50" itemprop="dateCreated datePublished" datetime="2020-07-15T20:23:50+09:00">2020-07-15</time>
+              <time title="Created: 2020-07-15 19:23:50" itemprop="dateCreated datePublished" datetime="2020-07-15T19:23:50+08:00">2020-07-15</time>
             </span>
               <span class="post-meta-item">
                 <span class="post-meta-item-icon">
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2020-07-16 11:26:08" itemprop="dateModified" datetime="2020-07-16T11:26:08+09:00">2020-07-16</time>
+                <time title="Modified: 2020-07-16 10:26:08" itemprop="dateModified" datetime="2020-07-16T10:26:08+08:00">2020-07-16</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -493,12 +583,12 @@ For details in the URI parameter of <code>ajv.getSchema</code> function, please 
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">3</span>
+          <span class="site-state-item-count">4</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
-        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-count">4</span>
         <span class="site-state-item-name">categories</span>
       </div>
   </nav>
