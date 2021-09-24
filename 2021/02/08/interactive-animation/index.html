@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="前言当页面中存在大量诸如页面拖动等动画时，手动处理手势事件，并将其绑定到诸如div等元素的属性将是一件费力且低效的工作。而react-use-gesture和react-spring分别对手势和动画进行了抽象，为使用react hooks创建交互式动画提供了一种更为便捷的解决方案。 本文将会先简要介绍使用react-use-gesture和react-spring创建交互式动画的方式，以及简要的实">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用react-use-gesture和react-spring的交互式动画">
+<meta property="og:url" content="http://yoursite.com/2021/02/08/interactive-animation/index.html">
+<meta property="og:site_name" content="Zile GUO">
+<meta property="og:description" content="前言当页面中存在大量诸如页面拖动等动画时，手动处理手势事件，并将其绑定到诸如div等元素的属性将是一件费力且低效的工作。而react-use-gesture和react-spring分别对手势和动画进行了抽象，为使用react hooks创建交互式动画提供了一种更为便捷的解决方案。 本文将会先简要介绍使用react-use-gesture和react-spring创建交互式动画的方式，以及简要的实">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2021-02-08T07:13:35.000Z">
+<meta property="article:modified_time" content="2021-09-24T07:15:43.387Z">
+<meta property="article:author" content="Zile GUO">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2021/02/08/interactive-animation/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>使用react-use-gesture和react-spring的交互式动画 | Zile GUO</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Zile GUO</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/02/08/interactive-animation/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Zile GUO">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Zile GUO">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          使用react-use-gesture和react-spring的交互式动画
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-02-08 15:13:35" itemprop="dateCreated datePublished" datetime="2021-02-08T15:13:35+08:00">2021-02-08</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2021-09-24 15:15:43" itemprop="dateModified" datetime="2021-09-24T15:15:43+08:00">2021-09-24</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/" itemprop="url" rel="index"><span itemprop="name">code</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/" itemprop="url" rel="index"><span itemprop="name">frontend</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/animation/" itemprop="url" rel="index"><span itemprop="name">animation</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/animation/interaction/" itemprop="url" rel="index"><span itemprop="name">interaction</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>当页面中存在大量诸如页面拖动等动画时，手动处理手势事件，并将其绑定到诸如div等元素的属性将是一件费力且低效的工作。而<a href="https://github.com/pmndrs/react-use-gesture" target="_blank" rel="noopener">react-use-gesture</a>和<a href="https://github.com/pmndrs/react-spring" target="_blank" rel="noopener">react-spring</a>分别对<strong>手势</strong>和<strong>动画</strong>进行了抽象，为使用<strong>react hooks</strong>创建交互式动画提供了一种更为便捷的解决方案。</p>
+<p>本文将会先简要介绍使用<a href="https://github.com/pmndrs/react-use-gesture" target="_blank" rel="noopener">react-use-gesture</a>和<a href="https://github.com/pmndrs/react-spring" target="_blank" rel="noopener">react-spring</a>创建交互式动画的方式，以及简要的实现解析。然后描述在开发过程中遇到的问题（兼容性问题&amp;接口问题）及其解决方案。</p>
+<h2 id="react-use-gesture"><a href="#react-use-gesture" class="headerlink" title="react-use-gesture"></a>react-use-gesture</h2><h3 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h3><p>react-use-gesture</p>
+<ol>
+<li><p>对浏览器的用户输入事件进行了封装，提供了统一的手势接口，使复杂的手势（如：拖动，缩放）易于配置。</p>
+</li>
+<li><p>提供了原生事件所没有的属性（如：速度，距离），丰富了事件所包含的信息。</p>
+</li>
+</ol>
+<h3 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h3><p><strong>例子</strong></p>
+<p>一个典型的例子如下所示。使用手势hook中注册回调函数，回调函数负责处理事件并触发side effects。hook会返回一个bind函数，通过调用该函数，将其绑定到react节点上。</p>
+<figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> bind = useDrag(<span class="function"><span class="params">state</span> =&gt;</span> doSomethingWith(state), config)</span><br><span class="line"><span class="keyword">return</span> <span class="xml"><span class="tag">&lt;<span class="name">div</span> &#123;<span class="attr">...bind</span>(<span class="attr">arg</span>)&#125; /&gt;</span></span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p> 其中：</p>
+<ol>
+<li>手势hook传入的第一个参数是回调函数，第二个参数是手势配置。</li>
+<li>bind函数中传入参数的方式，常用于给多个节点绑定同一个回调函数，详见<a href="https://codesandbox.io/s/fh8r8?file=/src/index.js:1694-1698" target="_blank" rel="noopener">这个例子</a>。</li>
+</ol>
+</blockquote>
+<p><strong>手势hook</strong></p>
+<p>目前支持的有普通手势：<code>useDrag</code>，<code>useMove</code>，<code>useHover</code>，<code>useScroll</code>，<code>useWheel</code>，<code>usePinch</code>，以及复合手势：<code>useGesture</code>。详细功能见<a href="https://use-gesture.netlify.app/docs/hooks/" target="_blank" rel="noopener">列表</a>。</p>
+<blockquote>
+<p>需要区分：</p>
+<ul>
+<li><p>useDrag，useMove和useHover</p>
+<p>drag事件只有在用户使用控制器（鼠标 / 触控屏）拖动（按压 / 触摸）时触发；而move事件会在控制器hover（onPointerMove）时即触发。而hover事件只处理控制器进入和离开事件（onPointerEnter &amp; onPointerLeave）</p>
+</li>
+<li><p>useWheel和useScroll</p>
+<p>wheel事件只会被鼠标触发。scroll事件只有在元素真实发生滚动的时候才会触发；而鼠标在元素上滑动滚轮就可以触发wheel事件。</p>
+</li>
+</ul>
+</blockquote>
+<p><strong>手势配置</strong></p>
+<p>比较常用的配置项有：domTarget / eventOptions，以及用于控制手势范围的 bounds / distanceBounds / angleBounds / rubberband，用于控制swipe的 swipeDistance / swipeVelocity / swipeDuration 等。详细内容可以在<a href="t.music.163.com/st-playlist-summerize/summerize/index.html">这里</a>找到。</p>
+<blockquote>
+<p>其中：</p>
+<ul>
+<li>domTarget用于替代bind函数，直接给dom ref绑定事件。当需要设置事件为<a href="https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#improving_scrolling_performance_with_passive_listeners" target="_blank" rel="noopener">passive</a>来提升性能时，必须使用domTarget。</li>
+</ul>
+</blockquote>
+<p><strong>事件</strong></p>
+<p>recognizer会给事件回调传入丰富的事件信息，诸如：movement，offset，velocity等。详见<a href="https://use-gesture.netlify.app/docs/state/" target="_blank" rel="noopener">文档</a>。</p>
+<blockquote>
+<p>其中较为常用的几个属性为：</p>
+<ul>
+<li><p>movement和offset的区别</p>
+<p>movement是单次拖动过程中手势拖动的向量，offset是在一个节点上所有手势拖动的向量和。</p>
+</li>
+<li><p>memo</p>
+<p>用于记忆用户的自定义事件属性</p>
+</li>
+<li><p>cancel</p>
+<p>取消当前事件</p>
+</li>
+<li><p>event</p>
+<p>原始事件</p>
+</li>
+</ul>
+</blockquote>
+<p><strong>注意</strong></p>
+<ol>
+<li>为了避免和浏览器默认的拖动产生冲突（如：图片和链接的默认拖动行为），需要设置css：<code>touch-action: none</code>。同时，如需兼容firefox，还需要prevent default，详见<a href="https://use-gesture.netlify.app/docs/faq/#why-cant-i-properly-drag-an-image-or-a-link" target="_blank" rel="noopener">这里</a>。</li>
+</ol>
+<h3 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h3><p><strong>初始化</strong></p>
+<ul>
+<li>用户调用接口，传入handlers和config</li>
+<li>实例化controller<ul>
+<li>实例化接口对应的recognizer，将handlers传入recognizer</li>
+<li>将recognizer需要注册的事件列表注册到dom</li>
+</ul>
+</li>
+</ul>
+<p><strong>回调</strong></p>
+<ul>
+<li>当recognizer监听到对应的手势时，触发handlers</li>
+</ul>
+<h3 id="性能优化"><a href="#性能优化" class="headerlink" title="性能优化"></a>性能优化</h3><ul>
+<li><p>Event delegation</p>
+<p>在react-use-gesture提供了更加丰富的事件信息的同时，也增加了每次事件计算信息的性能消耗。通过事件代理对事件进行统一处理可以优化性能。</p>
+</li>
+</ul>
+<h2 id="react-spring"><a href="#react-spring" class="headerlink" title="react-spring"></a>react-spring</h2><h3 id="简介-1"><a href="#简介-1" class="headerlink" title="简介"></a>简介</h3><p>react spring提供了基于弹簧物理模拟的动画。它基于弹簧模型而不是常见的曲线 / 时长模型（尽管API中也支持指定动画时长），使其的动画效果更为自然。因为基于物理模型的动画将是<strong>连贯</strong>且更具<strong>交互性</strong>的。</p>
+<blockquote>
+<p>Andy Matuschak (ex Apple UI-Kit developer) <a href="https://twitter.com/andy_matuschak/status/566736015188963328" target="_blank" rel="noopener">expressed it once</a>: <em>Animation APIs parameterized by duration and curve are fundamentally opposed to continuous, fluid interactivity</em>.</p>
+</blockquote>
+<h3 id="使用-1"><a href="#使用-1" class="headerlink" title="使用"></a>使用</h3><p><strong>例子</strong></p>
+<p>React-spring的使用主要分为三步：</p>
+<ol>
+<li>使用动画hook配置动画并获得返回的style属性和set函数</li>
+<li>将style属性传入animated组件</li>
+<li>使用set函数更新动画</li>
+</ol>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123;useSpring, animated&#125; <span class="keyword">from</span> <span class="string">'react-spring'</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">App</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">const</span> [style, <span class="keyword">set</span>] = useSpring(() =&gt; (&#123;opacity: <span class="number">1</span>, <span class="attr">from</span>: &#123;<span class="attr">opacity</span>: <span class="number">0</span>&#125;&#125;))</span><br><span class="line">  <span class="comment">// ... use set to update style</span></span><br><span class="line">  <span class="keyword">return</span> <span class="xml"><span class="tag">&lt;<span class="name">animated.div</span> <span class="attr">style</span>=<span class="string">&#123;style&#125;</span>&gt;</span>I will fade in<span class="tag">&lt;/<span class="name">animated.div</span>&gt;</span></span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>注意：</p>
+<ol>
+<li>set函数并不是直接设置style，而是提供了一个目标，而useSpring会自己计算出下一帧该如何变化以接近目标。</li>
+<li>App函数并不会在set之后重新执行，因为style实际上是mutable的。</li>
+<li><a href="https://www.react-spring.io/docs/hooks/use-spring#either-overwrite-values-to-change-the-animation:~:text=Either%3A%20overwrite%20values%20to%20change%20the%20animation" target="_blank" rel="noopener">另外一种更新动画的方式</a>是在useSpring中直接传入新的值，但例子中使用的方法性能更优。</li>
+</ol>
+</blockquote>
+<p><strong>动画hook</strong></p>
+<table>
+<thead>
+<tr>
+<th>hook</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>useSpring</td>
+<td>动画化传入的参数</td>
+</tr>
+<tr>
+<td>useSprings</td>
+<td>创建多个动画，使用各自的动画配置，用于静态列表</td>
+</tr>
+<tr>
+<td>useTrail</td>
+<td>创建多个动画，使用同一个配置，每一个动画将会跟随前一个动画</td>
+</tr>
+<tr>
+<td>useTransition</td>
+<td>组件出现和消失的动画</td>
+</tr>
+<tr>
+<td>useChain</td>
+<td>串联动画，下一个动画会在上一个结束后开始</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>除了hook之外，react-spring还提供了动画组件，如：Spring，Trail等。参数与hook相似，这里不再赘述。</p>
+</blockquote>
+<p><strong>动画属性</strong></p>
+<ul>
+<li><p>字段类型（number + string）</p>
+<p>reat-spring不仅仅支持例子中的数字类型的动画，也支持字符串类型（如：transform，color）的动画。详见<a href="https://www.react-spring.io/docs/hooks/basics#up-front-interpolation:~:text=Up%2Dfront%20interpolation" target="_blank" rel="noopener">Up-front interpolation</a>。</p>
+</li>
+<li><p>插值（interpolate）</p>
+<p>同时，react-spring也支持使用<a href="https://www.react-spring.io/docs/hooks/api#interpolations:~:text=Interpolations" target="_blank" rel="noopener">插值函数</a>将一个更新后的数值映射到真实的动画属性。它允许用户<strong>重复使用</strong>一个计算结果，将其应用到多个动画属性上，提高了<strong>性能</strong>。一个例子可以在<a href="https://www.react-spring.io/docs/hooks/basics#view-interpolation:~:text=View%20interpolation,-In" target="_blank" rel="noopener">这里</a>找到。</p>
+</li>
+</ul>
+<p><strong>更新动画</strong></p>
+<p>使用hook返回的set函数更新目标，参数同hook参数一致。见<a href="https://www.react-spring.io/docs/hooks/api#properties:~:text=Properties,100%2C%20onRest%3A%20()%20%3D%3E%20...%20%7D" target="_blank" rel="noopener">properties</a>。</p>
+<ul>
+<li><p>from / to …</p>
+</li>
+<li><p><a href="https://www.react-spring.io/docs/hooks/api#configs:~:text=Configs" target="_blank" rel="noopener">config</a></p>
+<p>通过 mass / tension / friction 设置基于物理模拟的动画，或使用duration来设置基于时长的动画。</p>
+<p>或者可以使用config.default / config.slow … 等预设动画。</p>
+</li>
+</ul>
+<h3 id="实现-1"><a href="#实现-1" class="headerlink" title="实现"></a>实现</h3><ul>
+<li><p>style：通过将css属性与动画组件直接绑定，跳过了业务组件的重新渲染，提高性能。</p>
+<p><strong>监听动画属性</strong>：React-spring的hooks返回的style属性并不是简单的<code>CSSProperties</code>类型的数据，而是<code>SpringValues</code>类型。其中每个<code>SpringValue</code>通过<a href="https://www.npmjs.com/package/fluids" target="_blank" rel="noopener">fluids</a>库的<code>addFluidObserver</code>函数监测变化。实现类似mobx中observable的效果。当style被传入animated组件时，<code>getAnimatedState</code>函数会提取props中的fluidValue并添加到依赖集中，并为每个依赖通过<code>addFluidObserver</code>监听变化。</p>
+<p><strong>更新</strong>：当<code>SpringValue</code>更新时，会被加入一个<code>Set</code>。在每个动画帧（使用<code>rafz</code>库的<code>onFrame</code>函数，调用requestAnimationFrame）的最后，这些更新会被读取并通过<code>flushCalls</code>函数应用到组件上。</p>
+</li>
+</ul>
+<h2 id="兼容性问题"><a href="#兼容性问题" class="headerlink" title="兼容性问题"></a>兼容性问题</h2><h3 id="Pointer-event"><a href="#Pointer-event" class="headerlink" title="Pointer event"></a>Pointer event</h3><p><strong>问题</strong></p>
+<p>由于react-use-spring使用了<a href="https://developer.mozilla.org/en-US/docs/Web/API/PointerEvent" target="_blank" rel="noopener">pointer event</a>，导致在低版本的浏览器中将无法使用。</p>
+<p><strong>解决方案</strong></p>
+<p>所幸<a href="https://github.com/jquery/PEP" target="_blank" rel="noopener">pepjs</a>提供了pointer event的polyfill方案，而其使用方式也十分简单：</p>
+<ol>
+<li><p>安装pepjs</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm install pepjs</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>在代码中引入</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="string">'pepjs'</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>在对应的节点设置touch-action属性（浏览器为了优化性能，不指定touch-action默认不触发事件）</p>
+<figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">button</span> <span class="attr">id</span>=<span class="string">'test'</span> <span class="attr">touch-action</span>=<span class="string">"none"</span>&gt;</span>Test button!<span class="tag">&lt;/<span class="name">button</span>&gt;</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>注册事件</p>
+<ul>
+<li><p>react</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">export function Pointable() &#123;</span><br><span class="line">  return &lt;div touch-action&#x3D;&quot;none&quot; onPointerDown&#x3D;&#123;(e) &#x3D;&gt; console.log(e)&#125; &#x2F;&gt; </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>DOM</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">document.getElementById(&quot;test&quot;).addEventListener(&quot;pointerdown&quot;, function(e) &#123;console.log(e)&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+</li>
+</ol>
+<p>注意：在使用pepjs时，当用户的触摸操作需要用到浏览器默认的行为（如：scroll）时，同样需要指定touch-action（如：touch-action=’auto’）。</p>
+<h3 id="IOS-13-0-amp-13-1"><a href="#IOS-13-0-amp-13-1" class="headerlink" title="IOS 13.0 &amp; 13.1"></a>IOS 13.0 &amp; 13.1</h3><p><strong>问题</strong></p>
+<p>在IOS13.x及之后的版本中，移动端的safari&amp;chrome开始支持pointer event。但是对于13.0 &amp; 13.1，官方对于pointer event的实现（pointerevent.buttons的值）仍然有问题，见<a href="https://caniuse.com/pointer" target="_blank" rel="noopener">can i use</a>。在这两个版本中，由于：</p>
+<ol>
+<li>pepjs不再polyfill</li>
+<li>react-use-gesture的实现依赖于pointerevent.buttons的值</li>
+</ol>
+<p>造成了在13.0 &amp; 13.1产生了一个pointerevent.buttons polyfill的真空地带，导致react-use-gesture失效。这个问题在<a href="https://github.com/pmndrs/react-use-gesture/issues/103#issuecomment-545422374" target="_blank" rel="noopener">issue</a>中也有描述。</p>
+<p><strong>解决方案</strong></p>
+<p>因为这是pointer event实现的bug，react-use-gesture并不准备通过为这两个版本修改代码。因此我们需要自己fork一个react-use-gesture:</p>
+<p>路径：<code>./src/recognizers/DragRecognizer.ts</code></p>
+<figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">onDragChange = (event: PointerEvent): void =&gt; &#123;</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line"></span><br><span class="line">    // If the event doesn't have any button / touches left we should cancel</span><br><span class="line">    // the gesture. This may happen if the drag release happens outside the browser</span><br><span class="line">    // window.</span><br><span class="line"><span class="deletion">-   if (!genericEventData.down) &#123;</span></span><br><span class="line"><span class="addition">+   if (!is_ios_13_0_or_13_1() &amp;&amp; !genericEventData.down) &#123;</span></span><br><span class="line">      this.onDragEnd(event)</span><br><span class="line">      return</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>注意</strong></p>
+<p>修改后的库会有一个问题，即：使用鼠标拖动移出浏览器窗口后释放鼠标，再移入时，在IOS13.0和IOS13.1中，将继续处于拖动状态。</p>
+<h2 id="踩坑"><a href="#踩坑" class="headerlink" title="踩坑"></a>踩坑</h2><h3 id="react-spring-v9-资源汇总"><a href="#react-spring-v9-资源汇总" class="headerlink" title="react-spring v9 资源汇总"></a>react-spring v9 资源汇总</h3><p>React-spring目前（2021/02/07）最新的稳定版本是8.0.27，最新的release candidate是9.0.0-rc.3。但是由于官网的文档仍然是v8的版本，且我们在使用v9时遇到了很多奇怪的问题，并不建议使用v9。</p>
+<p>如果你仍然想要使用v9，以下是一些文档的链接：</p>
+<ul>
+<li><a href="https://aleclarson.github.io/react-spring/v9/" target="_blank" rel="noopener">v9新特性</a></li>
+<li><a href="https://aleclarson.github.io/react-spring/v9/breaking-changes/" target="_blank" rel="noopener">v9 useTransition的新API</a></li>
+</ul>
+<h3 id="react-spring-v9-常见问题及解决方式"><a href="#react-spring-v9-常见问题及解决方式" class="headerlink" title="react-spring v9 常见问题及解决方式"></a>react-spring v9 常见问题及解决方式</h3><ul>
+<li><p>Q：在开发环境无问题，部署环境出现TypeError（如： <code>Uncaught TypeError: r.willAdvance is not a function</code>）</p>
+<p>A：因为v9 - rc.3在package.json中声明了<code>sideEffect: ture</code>。webpack时会进行剪枝（tree shaking）操作，导致报错（官方表示会在rc.4修复）。<a href="https://github.com/pmndrs/react-spring/issues/1078#issuecomment-753032426" target="_blank" rel="noopener">修复方法</a>：</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">"scripts": &#123;</span><br><span class="line">    "react-spring-issue-1078": "find node_modules -path \\*@react-spring/\\*/package.json -exec sed -i.bak 's/\"sideEffects\": false/\"sideEffects\": true/g' &#123;&#125; +",</span><br><span class="line">    "postinstall": "npm run react-spring-issue-1078",</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>Q：useTransition / Transition 中各种不符合预期的表现</p>
+<p>A：首先检查是否使用了<a href="https://aleclarson.github.io/react-spring/v9/breaking-changes/#The-useTransition-hook" target="_blank" rel="noopener">v9新的API格式</a>。然后尝试在items参数中传入数组而不是其他类型。尽管在<a href="https://www.react-spring.io/docs/hooks/use-transition" target="_blank" rel="noopener">文档</a>的示例中有很多非数组的例子，但这些都不是标准的使用方法，在v9中可能导致各种预期之外的动画效果。</p>
+</li>
+<li><p>Q：useTransition / Transition 中的 Multi-stage transitions 的stage数量和设定不符</p>
+<p>A：检查是否两个阶段设定的状态没有变化，如：</p>
+<figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">leave=&#123;[</span><br><span class="line">	&#123;<span class="attr">opacity</span>: <span class="number">1</span>&#125;,</span><br><span class="line">  &#123;<span class="attr">opacity</span>: <span class="number">1</span>&#125;,</span><br><span class="line">  &#123;<span class="attr">opacity</span>: <span class="number">0</span>&#125;,</span><br><span class="line">]&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上图的设定会导致中间的stage被无视，实际效果不是<code>opacity: 1-&gt;1-&gt;0</code>，而是<code>opacity: 1-&gt;0</code>。一个备用方案是设定用户无法感知的变化，如：</p>
+<figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">leave=&#123;[</span><br><span class="line">  &#123;<span class="attr">opacity</span>: <span class="number">1</span>&#125;,</span><br><span class="line">  &#123;<span class="attr">opacity</span>: <span class="number">0.99</span>&#125;,</span><br><span class="line">  &#123;<span class="attr">opacity</span>: <span class="number">0</span>&#125;,</span><br><span class="line">]&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/10/18/animated-react-native/" rel="prev" title="Animated in React Native">
+      <i class="fa fa-chevron-left"></i> Animated in React Native
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/02/26/log-hoc/" rel="next" title="埋点HOC">
+      埋点HOC <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#react-use-gesture"><span class="nav-number">2.</span> <span class="nav-text">react-use-gesture</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#简介"><span class="nav-number">2.1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用"><span class="nav-number">2.2.</span> <span class="nav-text">使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#实现"><span class="nav-number">2.3.</span> <span class="nav-text">实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#性能优化"><span class="nav-number">2.4.</span> <span class="nav-text">性能优化</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#react-spring"><span class="nav-number">3.</span> <span class="nav-text">react-spring</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#简介-1"><span class="nav-number">3.1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用-1"><span class="nav-number">3.2.</span> <span class="nav-text">使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#实现-1"><span class="nav-number">3.3.</span> <span class="nav-text">实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#兼容性问题"><span class="nav-number">4.</span> <span class="nav-text">兼容性问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Pointer-event"><span class="nav-number">4.1.</span> <span class="nav-text">Pointer event</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#IOS-13-0-amp-13-1"><span class="nav-number">4.2.</span> <span class="nav-text">IOS 13.0 &amp; 13.1</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#踩坑"><span class="nav-number">5.</span> <span class="nav-text">踩坑</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#react-spring-v9-资源汇总"><span class="nav-number">5.1.</span> <span class="nav-text">react-spring v9 资源汇总</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#react-spring-v9-常见问题及解决方式"><span class="nav-number">5.2.</span> <span class="nav-text">react-spring v9 常见问题及解决方式</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Zile GUO</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">8</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-name">categories</span>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Zile GUO</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

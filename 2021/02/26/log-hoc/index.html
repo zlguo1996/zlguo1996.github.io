@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="在react中，对于公共组件，与组件职责无关的埋点参数需要通过props深入传递，影响代码可读性和耦合度。本文介绍了一种通过HOC在祖先组件中添加埋点信息，并在埋点组件中读取的方式。通过独立数据流，提高了代码的可读性，降低耦合度。 问题示例需求两个业务组件：  音乐列表组件 - MusicList 音乐列表项组件 - MusicItem  有两个业务页面：  播放列表页面 - PlayListPa">
+<meta property="og:type" content="article">
+<meta property="og:title" content="埋点HOC">
+<meta property="og:url" content="http://yoursite.com/2021/02/26/log-hoc/index.html">
+<meta property="og:site_name" content="Zile GUO">
+<meta property="og:description" content="在react中，对于公共组件，与组件职责无关的埋点参数需要通过props深入传递，影响代码可读性和耦合度。本文介绍了一种通过HOC在祖先组件中添加埋点信息，并在埋点组件中读取的方式。通过独立数据流，提高了代码的可读性，降低耦合度。 问题示例需求两个业务组件：  音乐列表组件 - MusicList 音乐列表项组件 - MusicItem  有两个业务页面：  播放列表页面 - PlayListPa">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2021-02-26T07:09:46.000Z">
+<meta property="article:modified_time" content="2021-09-24T07:13:12.387Z">
+<meta property="article:author" content="Zile GUO">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2021/02/26/log-hoc/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>埋点HOC | Zile GUO</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Zile GUO</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/02/26/log-hoc/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Zile GUO">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Zile GUO">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          埋点HOC
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-02-26 15:09:46" itemprop="dateCreated datePublished" datetime="2021-02-26T15:09:46+08:00">2021-02-26</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2021-09-24 15:13:12" itemprop="dateModified" datetime="2021-09-24T15:13:12+08:00">2021-09-24</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/" itemprop="url" rel="index"><span itemprop="name">code</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/" itemprop="url" rel="index"><span itemprop="name">frontend</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/log/" itemprop="url" rel="index"><span itemprop="name">log</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>在react中，对于公共组件，与组件职责无关的埋点参数需要通过props深入传递，影响代码可读性和耦合度。本文介绍了一种通过HOC在祖先组件中添加埋点信息，并在埋点组件中读取的方式。通过独立数据流，提高了代码的可读性，降低耦合度。</p>
+<h3 id="问题示例"><a href="#问题示例" class="headerlink" title="问题示例"></a>问题示例</h3><h4 id="需求"><a href="#需求" class="headerlink" title="需求"></a>需求</h4><p>两个业务组件：</p>
+<ol>
+<li>音乐列表组件 - MusicList</li>
+<li>音乐列表项组件 - MusicItem</li>
+</ol>
+<p>有两个业务页面：</p>
+<ol>
+<li><p>播放列表页面 - PlayListPage</p>
+</li>
+<li><p>收藏列表页面 - CollectionListPage</p>
+</li>
+</ol>
+<p>组织结构如下：</p>
+<figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">////////// 组件 //////////</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 音乐列表</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">MusicList</span>(<span class="params">&#123;fetchList&#125;</span>) </span>&#123;</span><br><span class="line">	<span class="keyword">const</span> [list, setList] = useState([])</span><br><span class="line">	useEffect(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">		fetchList.then(<span class="function"><span class="params">res</span> =&gt;</span> &#123;setList&#123;res&#125;&#125;)</span><br><span class="line">	&#125;, [])</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">const</span> musicItems = list.map(<span class="function"><span class="params">item</span> =&gt;</span> <span class="xml"><span class="tag">&lt;<span class="name">MusicItem</span> <span class="attr">key</span>=<span class="string">&#123;item.id&#125;</span> <span class="attr">item</span>=<span class="string">&#123;item&#125;</span> /&gt;</span></span>)</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> <span class="xml"><span class="tag">&lt;<span class="name">div</span>&gt;</span>&#123;musicItems&#125;<span class="tag">&lt;/<span class="name">div</span>&gt;</span></span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 音乐列表项</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">MusicItem</span>(<span class="params">&#123;item&#125;</span>) =&gt; </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="xml"><span class="tag">&lt;<span class="name">div</span>&gt;</span>&#123;item.name&#125;<span class="tag">&lt;/<span class="name">div</span>&gt;</span></span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">////////// 页面 //////////</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 播放列表页面</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">PlayListPage</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="xml"><span class="tag">&lt;<span class="name">MusicList</span> <span class="attr">fetchList</span>=<span class="string">&#123;fetchPlayList&#125;</span> /&gt;</span></span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 收藏列表页面</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">CollectionListPage</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="xml"><span class="tag">&lt;<span class="name">MusicList</span> <span class="attr">fetchList</span>=<span class="string">&#123;fetchCollectionList&#125;</span> /&gt;</span></span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>现在我们需要对以上页面进行埋点，埋点信息格式如下：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 页面曝光埋点 - 播放列表页面的曝光和收藏列表页面的曝光</span></span><br><span class="line"><span class="keyword">const</span> pageImpressLog = &#123;</span><br><span class="line">  page: <span class="string">'play_list'</span> or <span class="string">'collection_list'</span>,</span><br><span class="line">  type: <span class="string">'impress'</span>,</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 音乐列表项的点击埋点 - 分别对两个页面的每个元素进行埋点</span></span><br><span class="line"><span class="keyword">const</span> itemClickLog = &#123;</span><br><span class="line">  page: <span class="string">'play_list'</span> or <span class="string">'collection_list'</span>,</span><br><span class="line">  type: <span class="string">'click'</span>,</span><br><span class="line">  id: <span class="string">'5486234'</span> <span class="comment">// 音乐的id</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h4><p>对于页面曝光埋点，我们可以直接在对应的页面上进行埋点。但是对于公共业务组件，埋点就显得比较繁琐：我们需要在通过props把page的信息传入到MusicList中，再由它传至MusicItem。这会带来两个问题：</p>
+<ol>
+<li>page信息实际上和MusicList / MusicItem 组件无关，这影响了组件的独立性。</li>
+<li>当公共组件内有多层嵌套的时候，这个无关信息需要深入传递，增加了组件的复杂度。</li>
+</ol>
+<h3 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h3><p>对于以上例子透露的问题，以及对需求进行分析，我们可以发现：</p>
+<ol>
+<li><p>页面曝光和音乐列表项点击的埋点存在公共字段（如：<code>page</code>），可以复用，且使用公共字段的两个组件存在逻辑上的嵌套关系。</p>
+</li>
+<li><p>公共组件可以使用props中的信息，对属于自己的特殊字段进行埋点（如：音乐列表项点击埋点中的<code>id</code>字段可以从通过<code>item.id</code>从props中提取）。</p>
+</li>
+<li><p>我们希望使用独立于props之外的独立数据流来提供埋点信息，降低埋点代码对业务代码的污染。</p>
+</li>
+</ol>
+<h3 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h3><ol>
+<li>在祖先组件中注入和该组件相关的埋点信息</li>
+<li>在后代组件中合并并使用所有祖先组件中注入的埋点信息</li>
+</ol>
+<h4 id="demo"><a href="#demo" class="headerlink" title="demo"></a>demo</h4><figure class="highlight diff"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line">////////// 组件 //////////</span><br><span class="line"></span><br><span class="line">// 音乐列表</span><br><span class="line">function MusicList(&#123;fetchList&#125;) &#123;</span><br><span class="line">	const [list, setList] = useState([])</span><br><span class="line">	useEffect(() =&gt; &#123;</span><br><span class="line">		fetchList.then(res =&gt; &#123;setList&#123;res&#125;&#125;)</span><br><span class="line">	&#125;, [])</span><br><span class="line">  </span><br><span class="line">  const musicItems = list.map(item =&gt; &lt;MusicItem key=&#123;item.id&#125; item=&#123;item&#125; /&gt;)</span><br><span class="line">  </span><br><span class="line">  return &lt;div&gt;&#123;musicItems&#125;&lt;/div&gt;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// 音乐列表项</span><br><span class="line">function MusicItem(&#123;item&#125;) &#123;</span><br><span class="line"><span class="addition">+  const log = useLog()</span></span><br><span class="line">  const onClick = () =&gt; &#123;</span><br><span class="line"><span class="addition">+   sendLog(&#123;</span></span><br><span class="line">			...log,</span><br><span class="line">			type: 'click',</span><br><span class="line">			id: item.id</span><br><span class="line">    &#125;)</span><br><span class="line">  &#125;</span><br><span class="line">  return &lt;div &gt;&#123;item.name&#125;&lt;/div&gt;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">////////// 页面 //////////</span><br><span class="line"></span><br><span class="line">// 播放列表页面</span><br><span class="line"><span class="addition">+ const PlayListPage = injectLog(&#123;</span></span><br><span class="line"><span class="addition">+  page: 'play_list'</span></span><br><span class="line"><span class="addition">+ &#125;)(</span></span><br><span class="line">  () =&gt; &#123;</span><br><span class="line">    const log = useLog()</span><br><span class="line">    useEffect(() =&gt; &#123;</span><br><span class="line">      sendLog(&#123;</span><br><span class="line">        ...log,</span><br><span class="line">        type: 'impress'</span><br><span class="line">      &#125;)</span><br><span class="line">    &#125;, [])</span><br><span class="line">  	return &lt;MusicList fetchList=&#123;fetchPlayList&#125; /&gt;</span><br><span class="line">	&#125;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">// 收藏列表页面</span><br><span class="line">function CollectionListPage = injectLog(&#123;</span><br><span class="line">  page: 'collection_list'</span><br><span class="line">&#125;)(</span><br><span class="line">  () =&gt; &#123;</span><br><span class="line">    const log = useLog()</span><br><span class="line">    useEffect(() =&gt; &#123;</span><br><span class="line">      sendLog(&#123;</span><br><span class="line">        ...log,</span><br><span class="line">        type: 'impress'</span><br><span class="line">      &#125;)</span><br><span class="line">    &#125;, [])</span><br><span class="line">    return &lt;MusicList fetchList=&#123;fetchCollectionList&#125; /&gt;</span><br><span class="line">  &#125;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>从高亮行可以看到这种解决方案的示例：</p>
+<ol>
+<li>在页面中使用<code>injectLog</code>注入公共埋点信息。</li>
+<li>在埋点发送处使用<code>useLog</code>获取合并后的埋点信息，并发送。</li>
+</ol>
+<h4 id="一次失败的尝试"><a href="#一次失败的尝试" class="headerlink" title="一次失败的尝试"></a>一次失败的尝试</h4><p>由于react<a href="https://imkev.dev/react-rendering-order" target="_blank" rel="noopener">使用DFS进行渲染</a>，我的第一个想法是使用一个stack来存储所有祖先节点的渲染信息。<code>injectLog</code>HOC的简单版实现如下：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> stack = []</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">injectLog</span>(<span class="params">log</span>)</span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="function">(<span class="params">Component</span>) =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="function">(<span class="params">props</span>) =&gt;</span> &#123;</span><br><span class="line">     	stack.push(log)</span><br><span class="line">    	<span class="keyword">const</span> component = React.createElement(Component, props)</span><br><span class="line">    	stack.pop(log)</span><br><span class="line">    	<span class="keyword">return</span> component </span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>但是这里执行stack pop操作的位置有问题。因为React.createElement并不会执行render函数。它返回的是一个Element，是一个所渲染的元素的描述，可以理解为一个plain object。React会通过render函数返回的描述自己控制渲染的执行。实际上，react profiler提供了onRender API。在render执行结束后会调用该回调函数。但是由于profiler会影响性能，官方不建议在生产环境使用。</p>
+<h4 id="注入和读取"><a href="#注入和读取" class="headerlink" title="注入和读取"></a>注入和读取</h4><p>使用react context，独立与组件之外对埋点信息进行存储。通过provider和consumer实现了脱离props传参之外的数据流。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/02/08/interactive-animation/" rel="prev" title="使用react-use-gesture和react-spring的交互式动画">
+      <i class="fa fa-chevron-left"></i> 使用react-use-gesture和react-spring的交互式动画
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/04/25/lottie-theme-color/" rel="next" title="React Native 动画应用主题颜色实践">
+      React Native 动画应用主题颜色实践 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#问题示例"><span class="nav-number">1.</span> <span class="nav-text">问题示例</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#需求"><span class="nav-number">1.1.</span> <span class="nav-text">需求</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#问题"><span class="nav-number">1.2.</span> <span class="nav-text">问题</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#分析"><span class="nav-number">2.</span> <span class="nav-text">分析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决方案"><span class="nav-number">3.</span> <span class="nav-text">解决方案</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#demo"><span class="nav-number">3.1.</span> <span class="nav-text">demo</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#一次失败的尝试"><span class="nav-number">3.2.</span> <span class="nav-text">一次失败的尝试</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#注入和读取"><span class="nav-number">3.3.</span> <span class="nav-text">注入和读取</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Zile GUO</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">8</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-name">categories</span>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Zile GUO</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>
