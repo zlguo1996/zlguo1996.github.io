@@ -145,6 +145,824 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2022/08/03/eslint-error/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Zile GUO">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Zile GUO">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2022/08/03/eslint-error/" class="post-title-link" itemprop="url">Eslint报错排查复盘</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2022-08-03 14:18:53 / Modified: 14:20:28" itemprop="dateCreated datePublished" datetime="2022-08-03T14:18:53+08:00">2022-08-03</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/" itemprop="url" rel="index"><span itemprop="name">code</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/" itemprop="url" rel="index"><span itemprop="name">frontend</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/framework/" itemprop="url" rel="index"><span itemprop="name">framework</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/framework/eslint/" itemprop="url" rel="index"><span itemprop="name">eslint</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>在实现赤兔脚手架（Modern.js的fork）URL Imports的接口定义Loader时，遇到了ESLint的报错：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">0:0  error  Parsing error: <span class="string">"parserOptions.project"</span> has been <span class="built_in">set</span> <span class="keyword">for</span> @typescript-eslint/parser.</span><br><span class="line">The file does not match your project config: chitu-lock/https_music-ox.hz.netease.com_/xxx/index.ts.</span><br><span class="line">The file must be included <span class="keyword">in</span> at least one of the projects provided</span><br></pre></td></tr></table></figure>
+
+<p>本文希望通过记录排查时的思路，来梳理遇到此类：1. 网上无法直接检索到解决方案；2. 且官方文档对此类错误没有详细描述问题的解决思路。</p>
+<h2 id="问题表现"><a href="#问题表现" class="headerlink" title="问题表现"></a>问题表现</h2><p>我们使用了三种eslint的执行方式：</p>
+<ol>
+<li>直接使用 eslint CLI 对指定文件进行 fix。执行成功。</li>
+<li>定义 format 函数，内部使用 eslint 的 node包，对指定文件进行fix。执行成功。</li>
+<li>在脚手架的 开始dev模式 &amp; 文件变化 回调用调用 format 函数，在文件内容下载完成后直接对文本进行fix。执行失败。</li>
+</ol>
+<h2 id="排查过程"><a href="#排查过程" class="headerlink" title="排查过程"></a>排查过程</h2><ol>
+<li><p>初次遇到这个问题时，表现是 eslint 没有对文件生效。因此我首先尝试将eslint的报错信息打印出来，就得到了背景中的报错信息：</p>
+ <figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> formatter = <span class="keyword">await</span> eslint.loadFormatter(<span class="string">'stylish'</span>);</span><br><span class="line"><span class="keyword">const</span> resultText = formatter.format(results);</span><br><span class="line"><span class="built_in">console</span>.log(resultText);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>尝试Google这个报错问题，可以检索到这个<a href="https://stackoverflow.com/questions/58510287/parseroptions-project-has-been-set-for-typescript-eslint-parser" target="_blank" rel="noopener">stackoverflow的高分回答</a> ：即有可能我们提供了错误的 parserOptions.project 参数，使 eslint 使用了错误的 tsconfig.json 文件。为了判断 eslint 使用的配置，尝试将其打印出来：</p>
+ <figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> config = <span class="keyword">await</span> eslint.calculateConfigForFile(filePath);</span><br><span class="line"><span class="built_in">console</span>.log(config)</span><br></pre></td></tr></table></figure>
+
+<p> 通过打印的信息，我们可以看到 parserOptions.project 均为 ./tsconfig.json。顺便我们也对比了其他生成的eslint 配置，没有任何区别。</p>
+</li>
+<li><p>尝试从源码分析</p>
+<ol>
+<li>通过在 typescript-eslint 中搜索报错信息可以发现，错误源于文件 packages/typescript-estree/src/create-program/createProjectProgram.ts 的 createProjectProgram 方法 。Typescript的工程监听器（Program）无法获取待 lint 文件的信息（currentProgram.getSourceFile 返回 空）</li>
+<li>通过检查 getProgramsForProjects 源码可以发现我们在创建 Program 时的输入参数是一致，但是输出的 Program 却在第三种执行方式时产生了不一致的运行结果。那么只可能是两次运行时某种环境的不同导致了结果的不同。</li>
+<li>再次深入到 Typescript 对 getSourceFile 函数的实现，可以发现 Program interface 中提供了 getSourceFiles 方法来获取所有源文件。将 2、3 两种执行方式进行对比，可以发现执行方式3刚好少了 chitu-lock 文件夹中的 ts 文件</li>
+</ol>
+</li>
+</ol>
+<h2 id="原因分析"><a href="#原因分析" class="headerlink" title="原因分析"></a>原因分析</h2><p>最后可以发现原因在于，使用 eslint 对文本进行 lint 操作时，filePath实际上还没有真实的文件存在。导致 Typescript 的 WatchProgram 没有对该文件进行监听，使 eslint 认为我们指定需要 lint 的文件不包含在配置的 ts工程 中，导致报错。</p>
+<figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> results = <span class="keyword">await</span> eslint.lintText(text, &#123;</span><br><span class="line">    filePath</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+
+<h2 id="复盘"><a href="#复盘" class="headerlink" title="复盘"></a>复盘</h2><p>在排查过程中，在最后发现两次执行 getSourceFiles 返回结果的不一致后，没有继续深入源码实现进行排查。因为想到了两次执行在文件是否存在上存在不一致。在这次长时间的排查中有以下教训：</p>
+<ol>
+<li>step by step：功能实现需要一步步实现，对每一步的结果进行测试，这样在某个步骤出错时由于和上一步相差较小，可以较容易地缩小引起错误的范围。</li>
+<li>控制变量：排查过程中时刻关注成功和失败的执行环境之间有哪些不同，尽管深入源码最终还是可以解决问题，但是排查效率低；从变量出发的排查往往更加高效。</li>
+</ol>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/12/13/web-security-1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Zile GUO">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Zile GUO">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/12/13/web-security-1/" class="post-title-link" itemprop="url">【学习笔记】Web安全 - 哈希</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-12-13 18:30:55" itemprop="dateCreated datePublished" datetime="2021-12-13T18:30:55+08:00">2021-12-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-01-04 10:54:37" itemprop="dateModified" datetime="2022-01-04T10:54:37+08:00">2022-01-04</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h3 id="哈希与加密"><a href="#哈希与加密" class="headerlink" title="哈希与加密"></a>哈希与加密</h3><p>从下图中，我们可以看到哈希与加密的不同：</p>
+<ol>
+<li>哈希是单向的，而加密是可逆的。</li>
+<li>两者所生成结果的信息量不同：哈希算法通常用于数据摘要，生成相同长度的文本；而加密算法生成的密文长度与明文长度有关，加密生成的密文需要能够被解密恢复成明文。</li>
+</ol>
+<p><img src="https://pic2.zhimg.com/737fa75c8409117d6202fd3b0c636d21_r.jpg" alt=""></p>
+<h3 id="哈希算法"><a href="#哈希算法" class="headerlink" title="哈希算法"></a>哈希算法</h3><p>一个优秀的哈希算法，需要满足以下几个特性：</p>
+<ol>
+<li>正向快速：给定原文和 Hash 算法，在有限时间和有限资源内能计算得到 Hash 值；</li>
+<li>逆向困难：给定（若干）Hash 值，在有限时间内无法（基本不可能）逆推出原文；</li>
+<li>输入敏感：原始输入信息发生任何改变，新产生的 Hash 值都应该发生很大变化；</li>
+<li>碰撞避免：很难找到两段内容不同的明文，使得它们的 Hash 值一致（即发生碰撞）。<ul>
+<li>弱抗碰撞性：给定原文前提下，无法找到与之碰撞的其它原文</li>
+<li>强抗碰撞性：无法找到任意两个可碰撞的原文</li>
+</ul>
+</li>
+</ol>
+<p>常见的算法有：</p>
+<ol>
+<li>MD：主要包括 MD4 和 MD5 两个算法。MD4（RFC 1320）是 MIT 的 Ronald L. Rivest 在 1990 年设计的，其输出为 128 位。MD4 已证明不够安全。MD5（RFC 1321）是 Rivest 于 1991 年对 MD4 的改进版本。它对输入仍以 512 位进行分组，其输出是 128 位。MD5 比 MD4 更加安全，但过程更加复杂，计算速度要慢一点。MD5 已于 2004 年被成功碰撞，其安全性已不足应用于商业场景。</li>
+<li>SHA：由美国国家标准与技术院（National Institute of Standards and Technology，NIST）征集制定。首个实现 SHA-0 算法于 1993 年问世，1998 年即遭破解。随后的修订版本 SHA-1 算法在 1995 年面世，它的输出为长度 160 位的 Hash 值，安全性更好。SHA-1 设计采用了 MD4 算法类似原理。SHA-1 已于 2005 年被成功碰撞，意味着无法满足商用需求。为了提高安全性，NIST 后来制定出更安全的 SHA-224、SHA-256、SHA-384 和 SHA-512 算法（统称为 SHA-2 算法）。新一代的 SHA-3 相关算法也正在研究中。</li>
+</ol>
+<h3 id="数字摘要"><a href="#数字摘要" class="headerlink" title="数字摘要"></a>数字摘要</h3><p>由于哈希算法碰撞避免的特性，它通常被用于进行数字摘要。通过生成的数字摘要，可以进行数据的校验。如：网络下载的资源是否遭受过篡改、鉴权协议（<a href="https://baike.baidu.com/item/%E6%8C%91%E6%88%98%E5%BA%94%E7%AD%94%E6%96%B9%E5%BC%8F/191313" target="_blank" rel="noopener">挑战应答方式</a>）。下面我们将以用户密码校验这个应用场景为例看下哈希算法的用途。</p>
+<h4 id="用户密码校验"><a href="#用户密码校验" class="headerlink" title="用户密码校验"></a>用户密码校验</h4><p>为了保障用户密码的安全性，在数据传输与存储的过程中直接使用用户密码实际都是不安全的。通过哈希生成数字签名，在传输和校验的过程中，只匹配使用密码生成的数字签名而不是密码，可以保障密码的安全性。在以下的场景中，我们会假设：1. 数据的传输是不安全的，数据可能会被中间人截获、重放；2. 数据的存储也是不安全的，攻击者可能会<a href="https://www.zhihu.com/question/40059755/answer/392404577" target="_blank" rel="noopener">拖库</a>、撞库。</p>
+<p><strong>使用明文或者加密</strong></p>
+<p>通过明文传输显然是不安全的。而即便使用加密算法，一旦私钥泄露、数据库泄露，用户密码同样也会被泄露。</p>
+<p><strong>使用哈希</strong></p>
+<p>单纯使用哈希和明文传输实际上并没有本质区别。</p>
+<ol>
+<li>从数据传输角度来看：攻击者可以进行中间人重放攻击，截取用户登录请求，使用同样的哈希值即可伪造用户进行登录。</li>
+<li>从数据存储角度来看：攻击者获取数据库后，可以使用rainbow table，从哈希值中反向计算处可能的密码明文。</li>
+</ol>
+<p><strong>使用哈希+动态salt</strong></p>
+<p>所谓salt就是一段随机的字符串，通过在原文上加上这段字符串，可以增加攻击的成本。常用的salt就是验证码，由于验证码是动态生成的，这保障了每次能够成功登录的数字签名是不同的。它的优势体现在：</p>
+<ol>
+<li>从数据传输角度来看：由于数字签名是动态的，无法再实施中间人重放攻击。</li>
+<li>从数据存储角度来看：由于每个rainbow table对应的是一套哈希算法，因此对每个验证码都需要生成一个独立的rainbow table，这极大增大了暴力破解的成本。</li>
+</ol>
+<p><strong>使用bcrypt, scrypt</strong></p>
+<p>随着内存大小的提升、和显卡并行能力的支持，使用哈希+动态salt的方式也不再那么安全。而<a href="https://en.wikipedia.org/wiki/Bcrypt" target="_blank" rel="noopener">bscrypt</a>、scrypt这类算法都有一个特点，即：算法中都有个<strong>因子</strong>，用于指明计算密码摘要所需要的资源和时间，也就是<strong>计算强度</strong>。计算强度越大，攻击者建立rainbow table越困难，以至于不可继续。由于计算强度因子的存在，随着算力的提升，通过调整因子，可以保障密码仍然不轻易被攻破。同时，算法的设计也确保了已有用户仍然能够正常登录。</p>
+<p>以bscrypt为例，一个bscrypt的hash字符串的格式如下。由于cost字段的存在，即便后来调整了计算强度因子，老的用户仍然可以通过原有的低cost哈希值进行登录。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy</span><br><span class="line">\__&#x2F;\&#x2F; \____________________&#x2F;\_____________________________&#x2F;</span><br><span class="line">Alg Cost      Salt                        Hash</span><br></pre></td></tr></table></figure>
+
+<p>bcrypt算法的结果就是使用<a href="https://en.wikipedia.org/wiki/Blowfish_(cipher)" target="_blank" rel="noopener">Blowfish</a>算法对文本”OrpheanBeholderScryDoubt”进行64次加密的结果。它利用了blowfish进行key change<a href="https://en.wikipedia.org/wiki/Blowfish_(cipher)#:~:text=Each%20new%20key%20requires%20the%20pre%2Dprocessing%20equivalent%20of%20encrypting%20about%204%20kilobytes%20of%20text%2C%20which%20is%20very%20slow%20compared%20to%20other%20block%20ciphers." target="_blank" rel="noopener">操作慢的特性</a>，在key初始化的时候调用<code>2^cost</code>次ExpandKey函数。</p>
+<h3 id="彩虹表"><a href="#彩虹表" class="headerlink" title="彩虹表"></a>彩虹表</h3><p>​    使用哈希来替代明文存储数据也并非安全的。仅管哈希无法通过直接逆向计算得到密码明文，攻击者仍然可以通过暴力计算得到明文和哈希的映射关系。以此间接地获得密码明文。</p>
+<p>​    <a href="https://en.wikipedia.org/wiki/Rainbow_table" target="_blank" rel="noopener">rainbow table</a>就是一个预先计算好的存储哈希函数输入输出映射关系的表。通过空间换时间，攻击者可以通过表查询的方式快速获得密码明文。值得一提的是，rainbow table使用[哈希链](<a href="https://en.wikipedia.org/wiki/Rainbow_table#:~:text=to" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/Rainbow_table#:~:text=to</a> the right.-,precomputed hash chains)的方式来减小表的大小。在rainbow table中只存储哈希链的<strong>开始值</strong>和<strong>结束值</strong>，在查询表时：</p>
+<ol>
+<li>计算输入哈希值的哈希链</li>
+<li>每次计算后，尝试匹配表中哈希链的<strong>结束值</strong></li>
+<li>匹配到结束值后，即可查询到包含该输入的哈希链的<strong>开始值</strong></li>
+<li>最后，通过开始值即可还原整条哈希链，在哈希链中我们就可以获取输入哈希值所对应的明文</li>
+</ol>
+<p>以下图为例：</p>
+<ol>
+<li>计算哈希链，尝试与rainbow table（左侧）中<strong>结束值</strong>（黄色）进行匹配</li>
+<li>当执行两次R函数时，匹配到了项（passwd - linux23）</li>
+<li>通过<strong>开始值</strong>（绿色）恢复哈希链，获取密码 - <code>culture</code></li>
+</ol>
+<p><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Simple_rainbow_search.svg/650px-Simple_rainbow_search.svg.png" alt="Simple rainbow search.svg"></p>
+<p>可以看到，在图中，计算哈希链使用了多个R函数。这是一种减少哈希碰撞的优化的算法：只要不是在不同哈希链的同个序号发生碰撞，哈希链就不会出现合并的问题（因为R函数不同，同样的哈希值可以计算出不同结果）。仅管无法避免原型链的重复，但这可以减小总体碰撞的数量，增大指定表大小下获得正确结果的可能性。但同时它也将查询单个项的时间复杂度由O(N)增加到了O(N^2)。（但这是可以接受的，因为如果使用普通的算法，rainbow table在表项增加时会由于哈希链合并问题而变得低效；而通常会增加表的数量，在每个表中查询来解决这个问题，但这同样也会增加查询的次数，而且还增加了表大小。）</p>
+<blockquote>
+<p>哈希链：在哈希链中，有两个关键的函数：1. H: hash function 哈希函数；2. R: reduction function 规约函数（能够将任意哈希值映射成特定字符的纯文本值，并非哈希函数的反函数）。这样，通过反复执行R和H，我们就可以得到一条哈希链（如下图所示）。由于H和R已知，对于任意输入的哈希值，通过计算<strong>结束值</strong>（即：kiebgt），我们可以判断它是否在数据库存储的某条哈希链之上；而通过<strong>开始值</strong>（即：aaaaaa）我们可以完整复原整条哈希链。</p>
+</blockquote>
+<p><img src="https://wikimedia.org/api/rest_v1/media/math/render/svg/bbacb4ee3811ce261fa6023c6de90718e22c7b49" alt="{\mathbf  {aaaaaa}}\,{\xrightarrow[ {\;H\;}]{}}\,{\mathrm  {281DAF40}}\,{\xrightarrow[ {\;R\;}]{}}\,{\mathrm  {sgfnyd}}\,{\xrightarrow[ {\;H\;}]{}}\,{\mathrm  {920ECF10}}\,{\xrightarrow[ {\;R\;}]{}}\,{\mathbf  {kiebgt}}"></p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><a href="https://oiipdf.com/security-for-web-developers" target="_blank" rel="noopener">Download Security for Web Developers PDF</a> （动物书）</li>
+<li><a href="https://github.com/FallibleInc/security-guide-for-developers" target="_blank" rel="noopener">security-guide-for-developers</a> (已长年未更新，但提供了web安全所涉及知识的提纲)</li>
+<li><a href="https://github.com/TransformCore/security-guide-for-developers" target="_blank" rel="noopener"> security-guide-for-developers</a></li>
+<li>知乎<ul>
+<li><a href="https://www.zhihu.com/question/25539382/answer/547509246" target="_blank" rel="noopener">Web <em>前端</em>密码<em>加密</em>是否有意义？</a></li>
+<li><a href="https://zhuanlan.zhihu.com/p/22289839" target="_blank" rel="noopener">当我们在谈论<em>前端加密</em>时，我们在谈些什么</a></li>
+<li><a href="https://www.zhihu.com/question/20479856/answer/15243887" target="_blank" rel="noopener">互联网网站应该如何存储密码？ - 韩竹的回答 - 知乎</a></li>
+</ul>
+</li>
+<li><a href="https://yeasy.gitbook.io/blockchain_guide/05_crypto/hash#chang-jian-suan-fa" target="_blank" rel="noopener">Hash 算法与数字摘要</a></li>
+</ul>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/12/05/react-18/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Zile GUO">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Zile GUO">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/12/05/react-18/" class="post-title-link" itemprop="url">React 18前瞻</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-12-05 20:37:47" itemprop="dateCreated datePublished" datetime="2021-12-05T20:37:47+08:00">2021-12-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2021-12-06 11:06:45" itemprop="dateModified" datetime="2021-12-06T11:06:45+08:00">2021-12-06</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/" itemprop="url" rel="index"><span itemprop="name">code</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/" itemprop="url" rel="index"><span itemprop="name">frontend</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>React 18 的核心新特性基本可以归为下面两类：</p>
+<ol>
+<li>并发特性。为了解决大量DOM节点同时更新造成的渲染延迟问题，以及子组件IO操作被父组件阻塞的问题。React新的Fiber Reconciler通过将任务拆分成小块，支持了并发渲染。既：允许React同时渲染多版本的UI。</li>
+<li>新SSR架构。允许用户将应用拆分为更小的单元，使每个单元具备独立的fetch data (server) → render to HTML (server) → load code (client) → hydrate (client)流程。</li>
+</ol>
+<p>在这之外，react18还：1. 引入了新的createRoot函数用于引入新特性以实现渐进式升级；2. 自动对更新进行批处理（automatic batching）。</p>
+<h2 id="新特性-Client"><a href="#新特性-Client" class="headerlink" title="新特性 - Client"></a>新特性 - Client</h2><h3 id="并发特性"><a href="#并发特性" class="headerlink" title="并发特性"></a>并发特性</h3><p>在更早的时候，react提出了实验性的特性<a href="https://reactjs.org/docs/concurrent-mode-intro.html" target="_blank" rel="noopener">concurrent mode</a>。通过concurrent modes实现了并发的状态更新，这里的并发有两种内含：</p>
+<ol>
+<li>对于CPU相关的更新（如创建DOM节点，执行组件生命周期函数），这意味着高优的更新能够打断正在执行的更新。</li>
+<li>对于IO相关的更新（如请求数据），这意味着在数据返回前可以在内存中提前进行渲染。</li>
+</ol>
+<p>在react 18的<a href="https://reactjs.org/blog/2021/06/08/the-plan-for-react-18.html" target="_blank" rel="noopener">post</a>中，作者将其重新命名为”concurrent rendering”。意味着react18中并发不再是以一种必须选择的作用于全局的模式（all-or-nothing “mode”），而是只会在需要时被新特性触发的特性。这也和react18的渐进式升级策略相关联。</p>
+<h4 id="CPU-bounded-updates"><a href="#CPU-bounded-updates" class="headerlink" title="CPU-bounded updates"></a>CPU-bounded updates</h4><p>为了提升运行性能和用户体验，react修改渲染的调度机制，这主要包含两点：</p>
+<ol>
+<li>将一次更新分片，允许多次更新并发执行，也支持更新的打断</li>
+<li>对更新区分优先级，优先执行高优更新任务</li>
+</ol>
+<h5 id="分片"><a href="#分片" class="headerlink" title="分片"></a>分片</h5><p>在进入分片之前我们需要先区分一下vdom树的更新（reconciliation）和渲染（render）。更新器（reconciler）是react的核心，对比两次更新前后树结构的不同；而渲染器（renderer）则将更新结果渲染到DOM上。更新器是可插拔的，我们可以用ReactDOM将其渲染为浏览器的DOM，或者用react native将其渲染为客户端的View。而核心的更新器是唯一的。</p>
+<p><img src="https://s2.loli.net/2021/12/05/1LytgYaSeqXpTIZ.png" alt="image-20211204182738628.png"></p>
+<p>分片能力在react 16引入的Fiber Reconciler中就已实现。在此之前react使用的是Stack Reconciler，它使用递归的方式对整棵树进行更新。它的问题在于在触发一次更新后，知道这次更新任务的完成，JS线程会一直被占用而无法执行其他更加高优的任务（如：响应用户交互)，造成了用户感知卡顿的问题。而Fiber Reconciler使用while loop拆解递归，将最小执行单元由一整棵树结构的更新降到了一个节点的更新；这就允许了更新被打断，为主线程提供了更多的调度能力。在新的调度能力的支持下，就可以完成高优更新优先渲染、中断过期更新等能力，更好地分配和节省计算资源。</p>
+<blockquote>
+<p>如果你对react的实现细节感兴趣，可以阅读一下<a href="https://reactjs.org/docs/codebase-overview.html" target="_blank" rel="noopener">codebase overview</a></p>
+</blockquote>
+<h5 id="优先级"><a href="#优先级" class="headerlink" title="优先级"></a>优先级</h5><p>react18将状态更新分为两个类别（优先级）：</p>
+<ol>
+<li>Urgent updates：需要快速反馈的交互，如：键盘输入、点击、触摸等</li>
+<li>Transition updates：UI从一个视图到另一个视图的转换</li>
+</ol>
+<p>比如：在一个cms的表格场景中，当用户选中一个下拉框的选项来过滤列表的时候。用户期望在点击选项后下拉框快速收起并更新选中项（urgent updates），但是真实的过滤后的列表无需即时变化（transition updates）。</p>
+<p>在18之前，所有的状态更新都是urgent updates，但实际上很多场景在18中可以归类为transition updates。但为了向后兼容，transition updates被作为一个可选的特性，只有当用户使用对应的API触法状态更新的时候才会被使用。</p>
+<p><strong>API</strong></p>
+<p>这个新的API就是<code>startTransition</code>：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; useTransition &#125; <span class="keyword">from</span> <span class="string">'react'</span>;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> [isPending, startTransition] = useTransition();</span><br><span class="line"></span><br><span class="line"><span class="comment">// Mark any state updates inside as transitions</span></span><br><span class="line">startTransition(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">  setState(input);</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+
+<p>useTransition hook 返回了：</p>
+<ol>
+<li>isPending：表示当前的状态更新还未被反映（渲染）到视图上</li>
+<li>startTransition：用于触发transition updates<ul>
+<li>startTransition会被同步执行，但是这个更新会被标记，在更新被处理时react会以此判断如何渲染更新</li>
+<li>渲染时，startTransition造成的更新是可以被打断的，它不会block页面。当用户的输入改变后，react将不会继续渲染过期的更新</li>
+</ul>
+</li>
+</ol>
+<p><strong>应用场景</strong></p>
+<p>在以下的场景中，我们可以用<code>startTransition</code>API来替代之前的状态更新API：</p>
+<ol>
+<li>Slow rendering：当一个更新需要消耗大量计算资源的时候</li>
+<li>Slow network：当一个更新需要react等待接口返回数据的时候</li>
+</ol>
+<p>可以这么认为：当一个更新本身就需要耗费一些等待时间（等待可能是来源于大量计算的开销或网络的等待）时，那么用户不会在乎为这个更新再多等待一些时间，此时就可以使用startTransition API。以此，可以将计算资源更多地提供给urgent updates来提升用户体验。</p>
+<blockquote>
+<p>react18和之前版本的性能比较可以见 <a href="https://github.com/reactwg/react-18/discussions/65" target="_blank" rel="noopener">这个案例</a></p>
+</blockquote>
+<h4 id="IO-bounded-updates"><a href="#IO-bounded-updates" class="headerlink" title="IO-bounded updates"></a>IO-bounded updates</h4><p><strong>现状</strong></p>
+<p>在目前，有三种渲染异步数据的方式：</p>
+<ol>
+<li>Fetch-on-render：在render函数中触发fetch（如：使用useEffect进行fetch），这经常会导致“waterfalls”（即将本可以并行的操作串联导致不必要的等待时间）。</li>
+<li>Fetch-then-render：等fetch完成后再进行渲染，但在fetch过程我们无法做任何事。</li>
+<li>Render-as-you-fetch：尽早开始fetch，同时开始渲染（在fetch返回之前），fetch返回之后重新进行渲染。</li>
+</ol>
+<p><strong>一个例子</strong></p>
+<p>在下面的代码中我们可以看到一个简化后的例子，描述了<code>Render-as-you-fetch</code>的流程：</p>
+<figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// This is not a Promise. It's a special object from our Suspense integration.</span></span><br><span class="line"><span class="keyword">const</span> resource = fetchProfileData();</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">ProfilePage</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> (</span><br><span class="line">    &lt;Suspense fallback=&#123;&lt;h1&gt;Loading profile...&lt;<span class="regexp">/h1&gt;&#125;&gt;</span></span><br><span class="line"><span class="regexp">      &lt;ProfileDetails /</span>&gt;</span><br><span class="line">      &lt;Suspense fallback=&#123;&lt;h1&gt;Loading posts...&lt;<span class="regexp">/h1&gt;&#125;&gt;</span></span><br><span class="line"><span class="regexp">        &lt;ProfileTimeline /</span>&gt;</span><br><span class="line">      &lt;<span class="regexp">/Suspense&gt;</span></span><br><span class="line"><span class="regexp">    &lt;/</span>Suspense&gt;</span><br><span class="line">  );</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">ProfileDetails</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="comment">// Try to read user info, although it might not have loaded yet</span></span><br><span class="line">  <span class="keyword">const</span> user = resource.user.read();</span><br><span class="line">  <span class="keyword">return</span> <span class="xml"><span class="tag">&lt;<span class="name">h1</span>&gt;</span>&#123;user.name&#125;<span class="tag">&lt;/<span class="name">h1</span>&gt;</span></span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">ProfileTimeline</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="comment">// Try to read posts, although they might not have loaded yet</span></span><br><span class="line">  <span class="keyword">const</span> posts = resource.posts.read();</span><br><span class="line">  <span class="keyword">return</span> (</span><br><span class="line">    &lt;ul&gt;</span><br><span class="line">      &#123;posts.map(<span class="function"><span class="params">post</span> =&gt;</span> (</span><br><span class="line">        &lt;li key=&#123;post.id&#125;&gt;&#123;post.text&#125;&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">      ))&#125;</span></span><br><span class="line"><span class="regexp">    &lt;/u</span>l&gt;</span><br><span class="line">  );</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>首先，使用<code>fetchProfileData</code>发送获取数据的请求</li>
+<li>同时，react开始渲染，在渲染<code>ProfileDetails</code>和<code>ProfileTimeline</code>时，由于read函数发现数据还没有返回，就会显示最近的祖先<code>Suspense</code>中fallback的内容</li>
+<li>随着数据返回，react将会重新尝试render，层层解锁suspense直到完整渲染</li>
+</ol>
+<p><strong>Suspense</strong></p>
+<p>上面的例子介绍了Suspense的使用方法。Suspense是react为组件渲染异步获取的数据提供的一个解决方案。</p>
+<blockquote>
+<p>In the long term, we intend Suspense to become the primary way to read asynchronous data from components — no matter where that data is coming from.</p>
+</blockquote>
+<p>在React18之前，Suspense唯一的使用场景就是用以在懒加载<code>React.lazy</code>组件的时候，显示加载中的状态。而Suspense的新功能为请求库提供了一个机制：一个组件渲染所需要的数据是否已经准备好了。它帮助请求库更好地与react进行集成但并非是一个请求库，目前Facebook内部使用的是Relay，而将来我们也将会看到更多请求库支持React Suspense。同时它提供了更友好地展示数据loading状态的方式，但并未将数据获取逻辑和UI组件进行耦合。</p>
+<p><strong>优点</strong></p>
+<ul>
+<li><p>分离数据的获取和消费逻辑。在组件中对其依赖的需要消费的数据进行声明，由react自身控制渲染。而开发者可以自由控制数据获取时机（如：在用户点击，页面切换之前就开始请求）。同时请求库的提供者也可以自由控制数据获取逻辑（如：像relay这样batch请求）。</p>
+</li>
+<li><p>在数据消费处（组件）声明数据依赖。这允许在build阶段进行静态代码分析来进行一些处理（如：relay就以此将数据依赖编译到独立文件中，并且集成GraphQL，以在一次请求中获取这个组件所需的数据）</p>
+</li>
+<li><p>声明式的加载状态控制。通过Suspense API，可以更加方便地通过标签声明来控制哪些组件需要同时被加载，哪些可以分别展示不同的加载状态。当需求发生变更时也无需侵入性地改变逻辑代码。</p>
+</li>
+<li><p>避免race condition。在此前，想象在useEffect中触发一个fetch，在then中再setState；如果多次请求，可能会出现老的请求在更晚返回并触发setState。而使用Suspense后，数据获取逻辑本身被作为state传入（类似于promise），这个state本身的产生是同步的，避免了race condition的出现。<a href="https://reactjs.org/docs/concurrent-mode-suspense.html#suspense-and-race-conditions" target="_blank" rel="noopener">例子</a>。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> initialResource = fetchProfileData(<span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">App</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">const</span> [resource, setResource] = useState(initialResource);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>使用ErrorBoundary处理fetch错误。</p>
+</li>
+</ul>
+<h4 id="Break-Change"><a href="#Break-Change" class="headerlink" title="Break Change"></a>Break Change</h4><p>部分生命周期的执行时机和次数将会发生改变。我们可以将react的生命周期分为两类：render phase（渲染阶段）和commit phase（提交阶段），详见<a href="https://projects.wojtekmaj.pl/react-lifecycle-methods-diagram/" target="_blank" rel="noopener">react-lifecycle-methods-diagram</a>。在并发渲染时，一个组件的更新可能会被打断，也有可能会被重新恢复，这就导致了一个渲染阶段的生命周期可能会被多次执行，造成切换到并发渲染后组件发生预期外的表现。因此在将旧组件升级为并发渲染时，需要注意：</p>
+<ol>
+<li>将render phase生命周期回调放到commit phase的回调中执行。</li>
+<li>或保证render phase执行的逻辑是<a href="https://en.wikipedia.org/wiki/Idempotence#Computer_science_meaning" target="_blank" rel="noopener">幂等</a>的。即该回调中的side effect，<strong>多次执行</strong>与<strong>单次执行</strong>对系统状态的影响<strong>相同</strong>。</li>
+</ol>
+<p>在开发阶段，我们可以：</p>
+<ol>
+<li>通过React的<a href="https://reactjs.org/docs/strict-mode.html#detecting-unexpected-side-effects" target="_blank" rel="noopener">Strict Mode</a>来检测这些潜在的错误（Strict Mode并非直接检测副作用，而是将这些生命周期的回调执行两次以便于用户发现非幂等的副作用）</li>
+<li>不再使用componentWillMount等生命周期，这些生命周期的替代方案可以参考<a href="https://reactjs.org/docs/react-component.html#legacy-lifecycle-methods" target="_blank" rel="noopener">官方文档</a>（这也是为什么React16.9将这些函数命名为UNSAFE_componentWillMount等，并在控制台打印警告）</li>
+</ol>
+<h3 id="Automatic-Batching"><a href="#Automatic-Batching" class="headerlink" title="Automatic Batching"></a>Automatic Batching</h3><p>一个下面这个例子就完整介绍了automatic batching，直到then中的函数执行结束，react才会将更新渲染到dom上：</p>
+<figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">App</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">const</span> [count, setCount] = useState(<span class="number">0</span>);</span><br><span class="line">  <span class="keyword">const</span> [flag, setFlag] = useState(<span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">handleClick</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    fetchSomething().then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">      <span class="comment">// React 18 and later DOES batch these:</span></span><br><span class="line">      setCount(<span class="function"><span class="params">c</span> =&gt;</span> c + <span class="number">1</span>);</span><br><span class="line">      setFlag(<span class="function"><span class="params">f</span> =&gt;</span> !f);</span><br><span class="line">      <span class="comment">// React will only re-render once at the end (that's batching!)</span></span><br><span class="line">    &#125;);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> (</span><br><span class="line">    &lt;div&gt;</span><br><span class="line">      &lt;button onClick=&#123;handleClick&#125;&gt;Next&lt;<span class="regexp">/button&gt;</span></span><br><span class="line"><span class="regexp">      &lt;h1 style=&#123;&#123; color: flag ? "blue" : "black" &#125;&#125;&gt;&#123;count&#125;&lt;/</span>h1&gt;</span><br><span class="line">    &lt;<span class="regexp">/div&gt;</span></span><br><span class="line"><span class="regexp">  );</span></span><br><span class="line"><span class="regexp">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>优点</strong></p>
+<ul>
+<li>性能：减少更新次数，提升性能</li>
+<li>稳定性：避免渲染半成品的状态而造成bug</li>
+</ul>
+<p><strong>历史</strong></p>
+<ul>
+<li>react16：一次setState就会触发一次更新。</li>
+<li>react17：在react event handler（如onClick）中，batching会生效；但是在promises, setTimeout, native event handlers中（如上面这个异步的例子），batching不会生效。</li>
+</ul>
+<p><strong>不想batch</strong></p>
+<p>如果想要在setState之后立即更新，react也提供了新的API<code>ReactDOM.flushSync</code>来同步更新：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; flushSync &#125; <span class="keyword">from</span> <span class="string">'react-dom'</span>; <span class="comment">// Note: react-dom, not react</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">handleClick</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  flushSync(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    setCounter(<span class="function"><span class="params">c</span> =&gt;</span> c + <span class="number">1</span>);</span><br><span class="line">  &#125;);</span><br><span class="line">  <span class="comment">// React has updated the DOM by now</span></span><br><span class="line">  flushSync(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    setFlag(<span class="function"><span class="params">f</span> =&gt;</span> !f);</span><br><span class="line">  &#125;);</span><br><span class="line">  <span class="comment">// React has updated the DOM by now</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="新特性-Server"><a href="#新特性-Server" class="headerlink" title="新特性 - Server"></a>新特性 - Server</h2><h3 id="服务端流式渲染"><a href="#服务端流式渲染" class="headerlink" title="服务端流式渲染"></a>服务端流式渲染</h3><blockquote>
+<p>new streaming server renderer</p>
+</blockquote>
+<h4 id="曾经的SSR"><a href="#曾经的SSR" class="headerlink" title="曾经的SSR"></a>曾经的SSR</h4><p><strong>流程</strong></p>
+<p>在此前，react ssr可以拆分为以下几步：</p>
+<ol>
+<li><p>server：为整个app获取数据</p>
+</li>
+<li><p>server：将整个app渲染为HTML并在response中返回给client</p>
+</li>
+<li><p>client：加载整个app的JS代码</p>
+</li>
+<li><p>client：将JS逻辑关联到服务端产生的静态HTML（hydration）</p>
+<blockquote>
+<p>Hydration的解释: The process of rendering your components and attaching event handlers is known as “hydration”. It’s like watering the “dry” HTML with the “water” of interactivity and event handlers. (Or at least, that’s how I explain this term to myself.)</p>
+</blockquote>
+</li>
+</ol>
+<p><strong>问题</strong></p>
+<p>可以看到流程中多次出现了“整个”。这就揭露了这种SSR模式的一个缺陷：在流程中，每一步都需要为整个app完成相应的计算才可以进入下一个步骤。</p>
+<blockquote>
+<ol>
+<li>You have to fetch everything before you can show anything</li>
+<li>You have to load everything before you can hydrate anything</li>
+<li>You have to hydrate everything before you can interact with anything</li>
+</ol>
+</blockquote>
+<p><strong>优化</strong></p>
+<p>问题的原因就在于“waterfall”： fetch data (server) → render to HTML (server) → load code (client) → hydrate (client)。这里的每个阶段都依赖于上个阶段的完成。并且每个阶段都是应用粒度的。</p>
+<p>优化的关键就在于拆分。就如同Fiber将整个应用的更新拆分为组件粒度的更新，以实现更加复杂的调度功能；同样在SSR上也可以将应用粒度拆分为组件粒度。这样就可以避免短板效应（即加载最慢的部分拖慢了整个应用响应的时间）的出现。</p>
+<h4 id="新的SSR"><a href="#新的SSR" class="headerlink" title="新的SSR"></a>新的SSR</h4><p><strong>特性</strong></p>
+<ol>
+<li><p>Streaming HTML（server）：尽早生成HTML并传输给client。HTML不再是单次请求返回，而是流式地传输给client，每一次更新都会包含：1. 新完成渲染的HTML内容模块；2. <code>&lt;script&gt;</code>标签，用于将HTML插入到正确的位置。</p>
+<p>API：切换<code>renderToString</code>到<code>renderToPipeableStream</code>。</p>
+</li>
+<li><p>Selective Hydration（client）：1. 允许尽早进行hydration操作，即便剩余的HTML和JS还没有被加载。2. 允许根据用户交互来改变hydration的优先级（Selective Hydration）。</p>
+<p>API：切换<code>ReactDOM.render</code>到<code>ReactDOM.createRoot</code>，同时以<code>&lt;Suspense&gt;</code>来拆分整个应用SSR的粒度。</p>
+</li>
+</ol>
+<p><strong>Streaming HTML</strong></p>
+<p>以下面这段代码为例。通过<code>Suspense</code>，React将不会等待评论模块（Comments）数据获取&amp;渲染完成，在此之前就可以开始HTML的流式传输：</p>
+<figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&lt;Layout&gt;</span><br><span class="line">  &lt;NavBar /&gt;</span><br><span class="line">  &lt;Sidebar /&gt;</span><br><span class="line">  &lt;RightPane&gt;</span><br><span class="line">    &lt;Post /&gt;</span><br><span class="line">    &lt;Suspense fallback=&#123;&lt;Spinner /&gt;&#125;&gt;</span><br><span class="line">      &lt;Comments /&gt;</span><br><span class="line">    &lt;<span class="regexp">/Suspense&gt;</span></span><br><span class="line"><span class="regexp">  &lt;/</span>RightPane&gt;</span><br><span class="line">&lt;<span class="regexp">/Layout&gt;</span></span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><p>React会将其他部分和用于替代评论模块的Spinner传输给客户端</p>
+<p><img src="https://camo.githubusercontent.com/484be91b06f3f998b3bda9ba3efbdb514394ab70484a8db2cf5774e32f85a2b8/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f704e6550316c4253546261616162726c4c71707178413f613d716d636f563745617955486e6e69433643586771456961564a52637145416f56726b39666e4e564646766361" alt=""></p>
+</li>
+<li><p>当评论模块在服务端渲染完成并传输给客户端后，客户端会用其替换Spinner</p>
+<p><img src="https://camo.githubusercontent.com/e44ee4be56e56e74da3b9f7f5519ca6197b24e9c34488df933140950f1b31c38/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f534f76496e4f2d73625973566d5166334159372d52413f613d675a6461346957316f5061434668644e36414f48695a396255644e78715373547a7a42326c32686b744a3061" alt=""></p>
+</li>
+</ol>
+<p><strong>Selective Hydration</strong></p>
+<p>同样以上面那段代码为例，hydration同样可以被拆分，如：</p>
+<ol start="3">
+<li><p>可能首先hydrate其余部分</p>
+<p><img src="https://camo.githubusercontent.com/4892961ac26f8b8dacbd53189a8d3fd1b076aa16fe451f8e2723528f51b80f66/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f304e6c6c3853617732454247793038657149635f59413f613d6a396751444e57613061306c725061516467356f5a56775077774a357a416f39684c31733349523131636f61" alt=""></p>
+</li>
+<li><p>再hydrate评论模块</p>
+<p><img src="https://camo.githubusercontent.com/8b2ae54c1de6c1b24d9080d2a50a68141f7f57252803543c30cc69cdd4b82fa1/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f784d50644159634b76496c7a59615f3351586a5561413f613d354748716b387a7939566d523255565a315a38746454627373304a7553335951327758516f3939666b586361" alt=""></p>
+</li>
+</ol>
+<p>由于每个模块的waterfall都是互相独立的（fetch data (server) → render to HTML (server) → load code (client) → hydrate (client)）。hydration也不一定会在HTML流式传输结束后才开始，即可能存在下面这种情况：</p>
+<ol>
+<li><p>其余部分的HTML stream</p>
+<p><img src="https://camo.githubusercontent.com/484be91b06f3f998b3bda9ba3efbdb514394ab70484a8db2cf5774e32f85a2b8/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f704e6550316c4253546261616162726c4c71707178413f613d716d636f563745617955486e6e69433643586771456961564a52637145416f56726b39666e4e564646766361" alt=""></p>
+</li>
+<li><p>其余部分的hydration</p>
+<p><img src="https://camo.githubusercontent.com/ee5fecf223cbbcd6ca8c80beb99dbea40ccbacf1b281f4cf8ac6970c554eefa3/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f384c787970797a66786a4f4a753475344e44787570413f613d507a6a534e50564c61394a574a467a5377355776796e56354d715249616e6c614a4d77757633497373666761" alt=""></p>
+</li>
+<li><p>评论模块的HTML stream</p>
+<p><img src="https://camo.githubusercontent.com/4892961ac26f8b8dacbd53189a8d3fd1b076aa16fe451f8e2723528f51b80f66/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f304e6c6c3853617732454247793038657149635f59413f613d6a396751444e57613061306c725061516467356f5a56775077774a357a416f39684c31733349523131636f61" alt=""></p>
+</li>
+<li><p>评论模块的hydration</p>
+<p><img src="https://camo.githubusercontent.com/8b2ae54c1de6c1b24d9080d2a50a68141f7f57252803543c30cc69cdd4b82fa1/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f784d50644159634b76496c7a59615f3351586a5561413f613d354748716b387a7939566d523255565a315a38746454627373304a7553335951327758516f3939666b586361" alt=""></p>
+</li>
+</ol>
+<p><strong>Selective Hydration</strong></p>
+<p>值得一提的是，由于这种粒度的拆分，除了根据数据到达顺序的hydration顺序之外，我们还可以根据用户交互来更换hydration的优先级。假设除了评论模块，我们为上面的每个模块都套上了<code>Suspense</code>标签（即每个模块的SSR流程都是相互独立的）：</p>
+<ol>
+<li><p>目前的加载状态，React正在hydrate边栏模块</p>
+<p><img src="https://camo.githubusercontent.com/6542ff54670ab46abfeb816c60c870ad6194ab15c09977f727110e270517b243/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f424333455a4b72445f72334b7a4e47684b33637a4c773f613d4778644b5450686a6a7037744b6838326f6533747974554b51634c616949317674526e385745713661447361" alt=""></p>
+</li>
+<li><p>用户对评论模块进行了点击。由于评论模块还是静态资源，目前无法响应用户交互</p>
+<p><img src="https://camo.githubusercontent.com/af5a0db884da33ba385cf5f2a2b7ed167c4eaf7b1e28f61dac533a621c31414b/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f443932634358744a61514f4157536f4e2d42523074413f613d3069613648595470325a6e4d6a6b774f75615533725248596f57754e3659534c4b7a49504454384d714d4561" alt=""></p>
+</li>
+<li><p>React判定评论模块的优先级更高，中止hydrate边栏模块，优先开始hydrate评论模块</p>
+<p><img src="https://camo.githubusercontent.com/f76a33458a3e698125063884035e7f126104bc2c27c30c02fe8e9ebdf3048c7b/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f5a647263796a4c49446a4a304261385a53524d546a513f613d67397875616d6c427756714d77465a3567715a564549497833524c6e7161485963464b55664f554a4d707761" alt=""></p>
+</li>
+<li><p>评论模块Hydrate完成，React重新触发点击事件，此时评论模块就可以进行响应。此后，React会继续hydrate边栏模块</p>
+<p><img src="https://camo.githubusercontent.com/64ea29524fa1ea2248ee0e721d1816387127507fd3d73a013f89266162b20fba/68747470733a2f2f717569702e636f6d2f626c6f622f5963474141416b314234322f525a636a704d72424c6f7a694635625a792d396c6b773f613d4d5455563334356842386e5a6e6a4a4c3875675351476c7a4542745052373963525a354449483471644b4d61" alt=""></p>
+</li>
+</ol>
+<p>更多关于流式SSR的介绍可以见<a href="https://github.com/reactwg/react-18/discussions/37" target="_blank" rel="noopener">这个issue</a></p>
+<h2 id="Suspense"><a href="#Suspense" class="headerlink" title="Suspense"></a>Suspense</h2><p>从并发渲染和新的流式SSR，我们可以看到从<code>if(isLoading)</code>这种命令式代码切换到<code>&lt;Suspense&gt;</code>这种声明式代码所带来的变化。通过显式地对加载状态进行声明，组件被人为分割，这个分割可能来源于：1. 代码加载的耗时；2. 依赖数据加载的耗时。通过这种声明，React可以对加载流程进行优化，将数据请求、Hydration、静态HTML生成等React管理的流程进行并行/并发，以达到优化性能的作用。</p>
+<h2 id="渐进式升级"><a href="#渐进式升级" class="headerlink" title="渐进式升级"></a>渐进式升级</h2><p>React18采用了<a href="https://reactjs.org/blog/2021/06/08/the-plan-for-react-18.html#a-gradual-adoption-strategy" target="_blank" rel="noopener">渐进式升级的策略</a>。没有显著的对现有组件行为产生突破性变化的更新。在不使用新特性的情况下，可以在很小甚至没有代码变更下完成到React18的升级。</p>
+<blockquote>
+<p><strong>You can upgrade to React 18 with minimal or no changes to your application code, with a level of effort comparable to a typical major React release</strong>.</p>
+</blockquote>
+<p>React18引入了新的<code>ReactDOM.createRoot</code> API，而不是使用它来替换原有的<code>ReactDOM.render</code> API。所有的新特性也只会在createRoot下生效，这避免了老版本代码因为新特性的引入而产生不可预期的执行结果。而对于新的并发特性（concurrent feature），官方博客同样提到，在对Facebook大量的组件进行升级的过程中，多数组件在无需代码变更的情况下就可以正常工作。</p>
+<h3 id="createRoot"><a href="#createRoot" class="headerlink" title="createRoot"></a>createRoot</h3><p>在React18中，将会存在两个Root API：</p>
+<ul>
+<li>Legacy root API：<code>ReactDOM.render</code> - 在这个API下的代码将会在<code>legacy</code>模式下被执行，它的执行逻辑和React17相同。这个API将被加上warning以提示它将被废弃，不推荐使用。</li>
+<li>New root API：<code>ReactDOM.createRoot</code> - 生成一个使用react18的root，包含了react18的所有优化（包含并发特性）</li>
+</ul>
+<p><strong>root</strong></p>
+<p>在React中，root是顶层的数据结构，React用其获取整棵树的信息以进行渲染。</p>
+<ul>
+<li><p>legacy：这个信息被保存在DOM中，对用户是透明的</p>
+<figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> * <span class="keyword">as</span> ReactDOM <span class="keyword">from</span> <span class="string">'react-dom'</span>;</span><br><span class="line"><span class="keyword">import</span> App <span class="keyword">from</span> <span class="string">'App'</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> container = <span class="built_in">document</span>.getElementById(<span class="string">'app'</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// Initial render.</span></span><br><span class="line">ReactDOM.render(<span class="xml"><span class="tag">&lt;<span class="name">App</span> <span class="attr">tab</span>=<span class="string">"home"</span> /&gt;</span></span>, container);</span><br><span class="line"></span><br><span class="line"><span class="comment">// During an update, React would access</span></span><br><span class="line"><span class="comment">// the root of the DOM element.</span></span><br><span class="line">ReactDOM.render(<span class="xml"><span class="tag">&lt;<span class="name">App</span> <span class="attr">tab</span>=<span class="string">"profile"</span> /&gt;</span></span>, container);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>new：这个信息是独立的一个object，需要执行它的render方法进行渲染</p>
+<figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> * <span class="keyword">as</span> ReactDOM <span class="keyword">from</span> <span class="string">'react-dom'</span>;</span><br><span class="line"><span class="keyword">import</span> App <span class="keyword">from</span> <span class="string">'App'</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> container = <span class="built_in">document</span>.getElementById(<span class="string">'app'</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// Create a root.</span></span><br><span class="line"><span class="keyword">const</span> root = ReactDOM.createRoot(container);</span><br><span class="line"></span><br><span class="line"><span class="comment">// Initial render: Render an element to the root.</span></span><br><span class="line">root.render(<span class="xml"><span class="tag">&lt;<span class="name">App</span> <span class="attr">tab</span>=<span class="string">"home"</span> /&gt;</span></span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// During an update, there's no need to pass the container again.</span></span><br><span class="line">root.render(<span class="xml"><span class="tag">&lt;<span class="name">App</span> <span class="attr">tab</span>=<span class="string">"profile"</span> /&gt;</span></span>);</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p><strong>hydration</strong></p>
+<p>当使用ssr时，需要使用<code>hydrateRoot</code>来替换createRoot。注意第二个参数还传入了JSX，因为SSR的第一次渲染比较特殊，需要将卡护短组件渲染的树和服务端渲染的树进行匹配</p>
+<figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> * <span class="keyword">as</span> ReactDOM <span class="keyword">from</span> <span class="string">'react-dom'</span>;</span><br><span class="line"><span class="keyword">import</span> App <span class="keyword">from</span> <span class="string">'App'</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> container = <span class="built_in">document</span>.getElementById(<span class="string">'app'</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// Create *and* render a root with hydration.</span></span><br><span class="line"><span class="keyword">const</span> root = ReactDOM.hydrateRoot(container, &lt;App tab=<span class="string">"home"</span> /&gt;);</span><br><span class="line"></span><br><span class="line"><span class="comment">// You can later update it.</span></span><br><span class="line">root.render(<span class="xml"><span class="tag">&lt;<span class="name">App</span> <span class="attr">tab</span>=<span class="string">"profile"</span> /&gt;</span></span>);</span><br></pre></td></tr></table></figure>
+
+<p><strong>区别</strong></p>
+<ol>
+<li>更新效率：在旧API中，即便container没有变化，render函数还是需要重复传入；另一方面，root无需再存储在DOM中，数据会更加安全（虽然实现上，root现在依旧会存储在DOM中）。</li>
+<li>适配新SSR：移除hydrate方法，将其作为root的一个属性；由于在允许部分hydrated的情况下，render的回调不再合理，它在新API中被移除了。</li>
+</ol>
+<p>其他详细内容可见<a href="https://github.com/reactwg/react-18/discussions/5" target="_blank" rel="noopener">issue</a></p>
+<h2 id="里程碑"><a href="#里程碑" class="headerlink" title="里程碑"></a>里程碑</h2><ul>
+<li>2021-06-08 发布alpha包</li>
+<li>2021-11-15 发布beta包</li>
+</ul>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p><a href="https://reactjs.org/blog/2021/06/08/the-plan-for-react-18.html" target="_blank" rel="noopener">The Plan for React 18</a></p>
+</li>
+<li><p><a href="https://zhuanlan.zhihu.com/p/379072979" target="_blank" rel="noopener">React 18 就要来了，来看看发布计划 🤩</a></p>
+</li>
+<li><p><a href="https://zhuanlan.zhihu.com/p/109971435" target="_blank" rel="noopener">理解 React Fiber &amp; Concurrent Mode</a></p>
+</li>
+<li><p><a href="https://reactjs.org/docs/concurrent-mode-intro.html" target="_blank" rel="noopener">Introducing Concurrent Mode (Experimental)</a></p>
+</li>
+<li><p><a href="https://reactjs.org/docs/react-component.html#legacy-lifecycle-methods" target="_blank" rel="noopener">Legacy Lifecycle Methods</a></p>
+</li>
+<li><p><a href="https://www.youtube.com/watch?v=ZCuYPiUIONs&ab_channel=MetaDevelopers" target="_blank" rel="noopener">Lin Clark - A Cartoon Intro to Fiber - React Conf 2017</a></p>
+</li>
+<li><p><a href="https://github.com/reactwg/react-18/discussions/21" target="_blank" rel="noopener">Automatic batching for fewer renders in React 18</a></p>
+</li>
+<li><p><a href="https://reactjs.org/docs/concurrent-mode-suspense.html" target="_blank" rel="noopener">Suspense for Data Fetching</a></p>
+</li>
+<li><p><a href="https://reactjs.org/blog/2019/11/06/building-great-user-experiences-with-concurrent-mode-and-suspense.html" target="_blank" rel="noopener">Building Great User Experiences with Concurrent Mode and Suspense</a></p>
+</li>
+<li><p><a href="https://github.com/reactwg/react-18/discussions/37" target="_blank" rel="noopener">New Suspense SSR Architecture in React 18</a></p>
+</li>
+<li><p><a href="https://github.com/reactwg/react-18/discussions/5" target="_blank" rel="noopener">Replacing render with createRoot</a></p>
+</li>
+</ul>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/11/11/micro-frontends/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Zile GUO">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Zile GUO">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/11/11/micro-frontends/" class="post-title-link" itemprop="url">接入微前端需要注意什么</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-11-11 20:18:19" itemprop="dateCreated datePublished" datetime="2021-11-11T20:18:19+08:00">2021-11-11</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/" itemprop="url" rel="index"><span itemprop="name">code</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/" itemprop="url" rel="index"><span itemprop="name">frontend</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/micro-frontends/" itemprop="url" rel="index"><span itemprop="name">micro frontends</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p><a href="https://micro-frontends.org/" target="_blank" rel="noopener">微前端（Micro-Frontends）</a>是一种类似于微服务的架构，它将微服务的理念应用于 Web 端。它将 Web 应用由单一的单体应用<strong>拆解</strong>为<strong>功能</strong>的<strong>组合</strong>。每个功能可以隶属于不同的团队，使用不同的前端架构，部署在不同的地址。</p>
+<p>微前端来源于前端业务间<strong>开发流程接耦</strong>的需求。即希望在从开发到上线的整个业务流程上，各个团队能够独立进行互不干扰：</p>
+<ul>
+<li><p>开发团队组织结构的演变：</p>
+<p><img src="https://micro-frontends.org/ressources/diagrams/organisational/monolith-frontback-microservices.png" alt="Monolithic Frontends"></p>
+</li>
+<li><p>微前端团队的组织结构：</p>
+<p><img src="https://micro-frontends.org/ressources/diagrams/organisational/verticals-headline.png" alt="End-To-End Teams with Micro Frontends"></p>
+</li>
+</ul>
+<h3 id="定义"><a href="#定义" class="headerlink" title="定义"></a>定义</h3><p>微前端是这样一种架构风格：将前端应用分解成一些更小、更简单的能够独立开发、测试、部署的小块，而在用户看来仍然是内聚的单个产品</p>
+<blockquote>
+<p>Micro Frontend is a pattern to emerge for decomposing frontend monoliths into smaller, simpler chunks that can be developed, tested and deployed independently, while still appearing to customers as a single cohesive product.</p>
+<p>摘自 <a href="https://front-hub.rdstation.com.br/docs/microfrontend" target="_blank" rel="noopener">https://front-hub.rdstation.com.br/docs/microfrontend</a></p>
+</blockquote>
+<p>即:</p>
+<ol>
+<li>对用户而言：是一个完整的单个产品</li>
+<li>对开发者而言：是多个独立交付的前端应用</li>
+</ol>
+<h3 id="例子"><a href="#例子" class="headerlink" title="例子"></a>例子</h3><p>如下是一个典型的微前端页面的结构。在一个公共的主应用中挂载了两个独立的子应用。三个应用代码分别存储于不同仓库，同时也部署于不同的地址。</p>
+<p><img src="https://p5.music.126.net/obj/wonDlsKUwrLClGjCm8Kx/11412748117/497e/2320/4b0a/93b0a666012108c98fe4bb8285774d6e.png" alt="image"></p>
+<p>由于子应用资源在运行时进行加载，满足了子应用间独立交付，互不干扰的需求。</p>
+<h3 id="广义的微前端"><a href="#广义的微前端" class="headerlink" title="广义的微前端"></a>广义的微前端</h3><p>如果我们把微前端看作一个<strong>容器应用</strong>将各子应用结合起来。那么广义来说，我们可以按照集成方式将微前端分为两类：</p>
+<ol>
+<li>构建时集成：如webpack的Code Splitting、npm包等方式（缺陷：发布阶段的耦合，无法独立交付）</li>
+<li>运行时集成： <ol>
+<li>客户端集成：iframe、Web Components和其他复合的JS集成（如使用qiankun等微前端框架）方式</li>
+<li>服务端集成：如 SSR 拼装模板，React18支持的<a href="https://github.com/reactwg/react-18/discussions/37" target="_blank" rel="noopener">Streaming HTML和Selective Hydration</a></li>
+</ol>
+</li>
+</ol>
+<p>接下来我们主要讨论的是<strong>运行时</strong>使用<strong>JS集成</strong>场景下的微前端，其他的集成方式选型可以参考<a href="https://zhuanlan.zhihu.com/p/96464401#:~:text=%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84%E4%B8%AD%E4%B8%80%E8%88%AC%E4%BC%9A%E6%9C%89%E4%B8%AA%E5%AE%B9%E5%99%A8%E5%BA%94%E7%94%A8%EF%BC%88container%20application%EF%BC%89%E5%B0%86%E5%90%84%E5%AD%90%E5%BA%94%E7%94%A8%E9%9B%86%E6%88%90%E8%B5%B7%E6%9D%A5" target="_blank" rel="noopener">这篇文章</a>。</p>
+<h3 id="应用场景"><a href="#应用场景" class="headerlink" title="应用场景"></a>应用场景</h3><p>得益于微前端<strong>拆解</strong>的特性，目前多用于复杂的web应用/web站点（如：中后台页面、阿里云页面、figma插件系统）。但由于其潜在的加载性能问题，多用于对网络资源不敏感的应用。</p>
+<p>在云音乐中，内部应用（如：cms后台）、B端应用（如：创作者中心）都是比较适合落地微前端的场景。</p>
+<p>在以下场景中我们可以应用这项技术：</p>
+<ol>
+<li>增量升级：允许渐进式重构。在历史系统中会存在一些过时的技术，而在新业务中使用这些技术会造成开发效率的降低。如：一些老的 cms 中使用 regular 框架，而现在云音乐的新业务都使用 react 进行开发。</li>
+<li>独立部署：缩小单应用功能范围，降低变更风险，提升部署效率。随着业务中需求的堆积，单体应用代码量增加，构建时间也会增加，造成每次部署的长时间的等待。如：平台 cms 中存在 200+个页面。</li>
+<li>团队自治：围绕业务功能纵向组建团队，而不是基于技术职能划分。一个业务中遇到的能力可能由不同团队来维护，使用同一个仓库会造成开发流程上的混乱；另一方面，同一个中台能力也可能提供给不同的业务方。如：用户中台 cms 提供了面向不同业务（心遇、云音乐）的用户管理能力。</li>
+</ol>
+<h3 id="微前端体系"><a href="#微前端体系" class="headerlink" title="微前端体系"></a>微前端体系</h3><p><img src="https://p6.music.126.net/obj/wonDlsKUwrLClGjCm8Kx/11414823066/584d/ed01/1e73/ab6bcd7eaa07b41d4b3137062fd099c7.png" alt="components"></p>
+<p><a href="https://mp.weixin.qq.com/s/D7vidJrA9v_Qx3zSFoNbOQ" target="_blank" rel="noopener">字节的这篇文章</a>提到了<strong>微前端体系</strong>：为了在企业级的业务中落地微前端，我们需要的不仅仅是一个<strong>微前端框架</strong>，而是一整套覆盖开发流程的完整体系。它包括：</p>
+<h4 id="治理体系"><a href="#治理体系" class="headerlink" title="治理体系"></a>治理体系</h4><p>管理平台 &amp; 发布流程</p>
+<ul>
+<li>应用管理：主子应用版本管理，入口地址</li>
+<li>依赖管理：主子应用间的依赖关系</li>
+</ul>
+<h4 id="开发配套"><a href="#开发配套" class="headerlink" title="开发配套"></a>开发配套</h4><p>开发工具 &amp; 流程</p>
+<ul>
+<li>流程文档</li>
+<li>集成联调：主应用独立调试、子应用独立调试、主子应用联合调试的方式</li>
+</ul>
+<h4 id="运行时容器"><a href="#运行时容器" class="headerlink" title="运行时容器"></a>运行时容器</h4><p>微前端框架、iframe、web component…</p>
+<ul>
+<li><p>应用加载</p>
+<ul>
+<li>入口文件格式：JS &amp; HTML</li>
+<li>入口的注入方式：构建时注入 &amp; 运行时注入</li>
+</ul>
+</li>
+<li><p>生命周期 - 加载 / 挂载 / 更新 / 卸载</p>
+<ul>
+<li>加载：请求资源</li>
+<li>挂载：初始化</li>
+<li>更新：路由变化、主子应用双向通信</li>
+<li>卸载：清理</li>
+</ul>
+</li>
+<li><p>沙箱隔离</p>
+<ul>
+<li><p>JS隔离</p>
+<ul>
+<li><p>snapshot：子应用挂载时对window进行快照，子应用卸载时恢复快照</p>
+</li>
+<li><p>wasm VM：子应用放在wasm的js解释器中执行（隔离过于严格，通信开销大）</p>
+</li>
+<li><p><a href="https://mp.weixin.qq.com/s/D7vidJrA9v_Qx3zSFoNbOQ#:~:text=Function(code)%20%2B%20Proxy-,with%20%E8%AF%AD%E6%B3%95%E7%94%A8%E4%BA%8E%E6%94%B9%E5%8F%98%E4%BD%9C%E7%94%A8%E5%9F%9F%E9%93%BE,-%EF%BC%8C%E8%BF%99%E9%87%8C%E7%94%A8%E6%9D%A5" target="_blank" rel="noopener">with() + new Function(code) + Proxy</a></p>
+<ul>
+<li>with()：改变作用域，拦截对全局变量的查找。</li>
+<li>new Function(code)：只能访问全局作用域（于此相对，eval可以访问局部变量）</li>
+<li>Proxy：对document、history、location的操作做劫持</li>
+</ul>
+</li>
+<li><p>with() + new Function(code) + Proxy + iframe</p>
+<ul>
+<li>其他与上面一致，但是取iframe的window解决了上面对windows浅拷贝导致的全局API逃逸问题</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>CSS隔离</p>
+<ul>
+<li>切换应用时卸载（同一时刻应用间CSS还是会互相干扰）</li>
+<li>shadow dom<ul>
+<li>严格隔离了主子应用CSS。但是无法解决所有问题，如：弹窗无法应用子应用样式</li>
+<li>hack：在document.body上的插入也应用shadow dom，并同步css。但是还有一些难以解决的问题：1. 两个shadow dom间样式的双向同步；2. css in js的动态插入；3. 插入dom其他位置难以劫持</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>路由同步</p>
+<ul>
+<li>主子应用共享浏览器历史，<strong>主子应用</strong>都<strong>能够</strong>操控和响应路由<ul>
+<li>history模式<ul>
+<li>主响应子：劫持子应用history.pushState，主应用接收通知后replaceState。<a href="https://juejin.cn/post/6847902217945481224#:~:text=%E8%B7%AF%E7%94%B1%E9%80%BB%E8%BE%91%E3%80%82-,%E5%AD%90%E5%BA%94%E7%94%A8%E8%B7%AF%E7%94%B1%E5%90%8C%E6%AD%A5%E5%9B%9E%E4%B8%BB%E5%BA%94%E7%94%A8,-%E4%B8%BB%E5%BA%94%E7%94%A8%E6%A0%B9%E6%8D%AE" target="_blank" rel="noopener">参考</a></li>
+<li>子响应主：劫持子应用popstate事件的监听，主应用路由变化后主动触发。<a href="https://juejin.cn/post/6991409477685624839#:~:text=DOM%20%E7%9A%84%E5%88%86%E6%9E%90%EF%BC%8C-,%E5%BE%AE%E5%BA%94%E7%94%A8%E6%98%AF%E9%80%9A%E8%BF%87%E4%B8%8B%E9%9D%A2%E4%B8%A4%E7%A7%8D%E6%96%B9%E5%BC%8F%E5%8C%B9%E9%85%8D%E5%AF%B9%E5%BA%94%E9%A1%B5%E9%9D%A2%E7%9A%84,-%E3%80%82" target="_blank" rel="noopener">参考</a></li>
+</ul>
+</li>
+<li>hash模式<ul>
+<li>响应hashchange事件</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>子应用</strong>能<strong>正确</strong>操控和响应路由（通过微前端访问和独立访问时子应用页面的url不同）</li>
+</ul>
+</li>
+<li><p>应用通信</p>
+<ul>
+<li>主子应用通信</li>
+</ul>
+</li>
+<li><p>异常处理</p>
+<ul>
+<li>加载失败，路由匹配失败…</li>
+</ul>
+</li>
+</ul>
+<h4 id="微物料"><a href="#微物料" class="headerlink" title="微物料"></a>微物料</h4><p>应用的拆分粒度 &amp; 加载方式。具体的分类可见<a href="https://mp.weixin.qq.com/s/D7vidJrA9v_Qx3zSFoNbOQ#:~:text=%E5%9C%A8%E8%BF%99%E4%B8%AA%E5%9C%BA%E6%99%AF%E4%B8%8B%EF%BC%8C%E7%AE%80%E5%8D%95%E5%8C%BA%E5%88%86%E4%B8%8B%E7%9B%AE%E5%89%8D%E8%BF%99%E5%87%A0%E4%B8%AA%E7%A7%B0%E5%91%BC%E7%9A%84%E8%BE%B9%E7%95%8C" target="_blank" rel="noopener">这里</a>。</p>
+<h3 id="问题-难点"><a href="#问题-难点" class="headerlink" title="问题 / 难点"></a>问题 / 难点</h3><h4 id="载入速度"><a href="#载入速度" class="headerlink" title="载入速度"></a>载入速度</h4><h5 id="流量负担（公共资源）"><a href="#流量负担（公共资源）" class="headerlink" title="流量负担（公共资源）"></a>流量负担（公共资源）</h5><p>重复加载公共资源是微前端的隔离中附带的问题。微前端降低了耦合度，但提取公共资源以统一处理又会增加微应用间耦合度。</p>
+<ul>
+<li><p><a href="https://zhuanlan.zhihu.com/p/96464401#:~:text=%E4%BC%9A%E7%A0%B4%E5%9D%8F%E5%8D%8F%E4%BD%9C-,%E6%B5%81%E9%87%8F%E8%B4%9F%E6%8B%85,-%E7%8B%AC%E7%AB%8B%E6%9E%84%E5%BB%BA" target="_blank" rel="noopener">公共依赖</a>：主子应用间、子应用间的公共资源，如：公共组件的JS、CSS，公共的错误、性能监控、埋点功能的代码。（解决方案：如使用html的external JavaScript，webpack5的module federation）</p>
+</li>
+<li><p>请求资源：在微前端中，主子应用经常会请求同一个接口，在首次加载时，实际上请求返回数据相同，需要避免重复请求带来的开销。（解决方案：如使用<a href="https://swr.vercel.app/zh-CN" target="_blank" rel="noopener">SWR</a>缓存请求结果，主应用使用props向子应用传递请求结果）</p>
+</li>
+</ul>
+<h5 id="加载链路"><a href="#加载链路" class="headerlink" title="加载链路"></a>加载链路</h5><p>为了便于对依赖进行管理，通常我们会动态下发子应用配置而非在构建时注入，这也一定程度上延长了资源加载的链路，进而降低了页面加载速度。</p>
+<h4 id="管理-、操作的复杂性"><a href="#管理-、操作的复杂性" class="headerlink" title="管理 、操作的复杂性"></a>管理 、操作的复杂性</h4><ul>
+<li>交付流程如何支持多应用（依赖管理，版本控制） </li>
+<li>质量保障（问题定位，独立发布的质量把控，开发规范）</li>
+</ul>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/09/24/rn-nested-scroll/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -168,10 +986,16 @@
                 <i class="fa fa-calendar-o"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
-              
 
-              <time title="Created: 2021-09-24 15:16:20 / Modified: 15:17:11" itemprop="dateCreated datePublished" datetime="2021-09-24T15:16:20+08:00">2021-09-24</time>
+              <time title="Created: 2021-09-24 15:16:20" itemprop="dateCreated datePublished" datetime="2021-09-24T15:16:20+08:00">2021-09-24</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2021-10-11 10:29:12" itemprop="dateModified" datetime="2021-10-11T10:29:12+08:00">2021-10-11</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="fa fa-folder-o"></i>
@@ -192,6 +1016,10 @@
                 <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
                   <a href="/categories/code/frontend/animation/interaction/" itemprop="url" rel="index"><span itemprop="name">interaction</span></a>
                 </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/animation/interaction/react-native/" itemprop="url" rel="index"><span itemprop="name">react native</span></a>
+                </span>
             </span>
 
           
@@ -206,7 +1034,7 @@
 
       
           <p>在嵌套滑动或其他复杂的交互场景时，我们需要对用户的手势进行识别。判断应该由哪个元素来响应这个手势事件。如在两个嵌套垂直滚动的ScrollView中，我们需要判断用户的意图是作用于内部还是外部的ScrollView。</p>
-<h2 id="手势识别能力"><a href="#手势识别能力" class="headerlink" title="手势识别能力"></a>手势识别能力</h2><p>对于滑动手势的识别，有下面三种能力层级：</p>
+<h2 id="手势识别能力"><a href="#手势识别能力" class="headerlink" title="手势识别能力"></a>手势识别能力</h2><p>对于滑动手势的识别，有下面三种能力层级（具体例子可见<code>参考 - 3</code>的视频）：</p>
 <ol>
 <li>滑动中识别（<em>abbrev</em>. 能力1）</li>
 <li>滑动开始时识别（<em>abbrev</em>. 能力2）</li>
@@ -281,6 +1109,7 @@
 <blockquote>
 <p> @gorhom/bottom-sheet内部依赖了react-native-gesture-handler和react-native-reanimated，使用时切忌遗漏安装对应的客户端包</p>
 </blockquote>
+<p>注：在安卓中，react-native包导出的Touchable和ScrollView无法在BottomSheet中正常响应事件，具体解决方案可见<a href="https://gorhom.github.io/react-native-bottom-sheet/v2/troubleshooting" target="_blank" rel="noopener">官方文档的troubleshooting部分</a>。</p>
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本文描述了嵌套垂直滑动的三种手势识别能力。并针对抽屉组件中嵌套ScrollView的不同需求场景，简述了仅使用RN提供的API &amp; 使用react-native-gesture-handler，实现不同能力的方法。可以看到，react-native-gesture-handler提供了更加完整的基础能力，以实现复杂的手势响应能力；但与此同时也增加了代码的复杂度。</p>
 <h2 id="展望"><a href="#展望" class="headerlink" title="展望"></a>展望</h2><p>在我的播客例子中，目前仅使用原生的方法实现了能力2的手势响应机制。通过react-native-gesture-handler，是否能够实现能力1的手势响应机制，以及如何实现，还待研究。</p>
 <h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><h3 id="1-react-native-gesture-handler"><a href="#1-react-native-gesture-handler" class="headerlink" title="1. react native gesture handler"></a>1. react native gesture handler</h3><p>Document: <a href="https://docs.swmansion.com/react-native-gesture-handler/docs/" target="_blank" rel="noopener">https://docs.swmansion.com/react-native-gesture-handler/docs/</a></p>
@@ -293,6 +1122,17 @@
 <h4 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h4><p>在UI线程（native）识别多个手势，按需激活正确的单个响应器，并使用Animated Native Driver实现流畅动画</p>
 <h3 id="2-usePanResponder"><a href="#2-usePanResponder" class="headerlink" title="2. usePanResponder"></a>2. usePanResponder</h3><p>外层抽屉浮层的pan responder配置</p>
 <figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123;</span><br><span class="line">    useCallback, useMemo, useRef</span><br><span class="line">&#125; <span class="keyword">from</span> <span class="string">'react'</span>;</span><br><span class="line"><span class="keyword">import</span> &#123;</span><br><span class="line">    PanResponder,</span><br><span class="line">    Animated</span><br><span class="line">&#125; <span class="keyword">from</span> <span class="string">'react-native'</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> &#123;</span><br><span class="line">    usePropsRef, closerToZero, flag, limitInBetween</span><br><span class="line">&#125; <span class="keyword">from</span> <span class="string">'./utils'</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> stablePositions = &#123;</span><br><span class="line">    TOP: <span class="number">0</span>,</span><br><span class="line">    BOTTOM: <span class="number">1</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> <span class="function"><span class="keyword">function</span> <span class="title">usePanResponder</span>(<span class="params">&#123;</span></span></span><br><span class="line"><span class="function"><span class="params">    <span class="regexp">//</span> up为y减小，down为y增大</span></span></span><br><span class="line"><span class="function"><span class="params">    lockDown, lockUp,</span></span></span><br><span class="line"><span class="function"><span class="params">    captureUp, captureDown,</span></span></span><br><span class="line"><span class="function"><span class="params">    thresholdUp, thresholdDown, <span class="regexp">//</span> 滑动绝对距离的阈值</span></span></span><br><span class="line"><span class="function"><span class="params">    <span class="regexp">//</span> top为y最小值，down为y最大值</span></span></span><br><span class="line"><span class="function"><span class="params">    onTopReached, onBottomReached,</span></span></span><br><span class="line"><span class="function"><span class="params">    topBoundY, bottomBoundY,</span></span></span><br><span class="line"><span class="function"><span class="params">    defaultY, <span class="regexp">//</span> 默认开始位置</span></span></span><br><span class="line"><span class="function"><span class="params">&#125;</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">const</span> props = usePropsRef(&#123;</span><br><span class="line">        lockDown,</span><br><span class="line">        lockUp,</span><br><span class="line">        captureUp,</span><br><span class="line">        captureDown,</span><br><span class="line">        thresholdUp,</span><br><span class="line">        thresholdDown,</span><br><span class="line">        onTopReached,</span><br><span class="line">        onBottomReached,</span><br><span class="line">        topBoundY,</span><br><span class="line">        bottomBoundY,</span><br><span class="line">        defaultY</span><br><span class="line">    &#125;);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取手势前的位置</span></span><br><span class="line">    <span class="keyword">const</span> lastStablePosition = useRef(</span><br><span class="line">        <span class="built_in">Math</span>.abs(defaultY - topBoundY) &lt; <span class="built_in">Math</span>.abs(defaultY - bottomBoundY)</span><br><span class="line">            ? stablePositions.TOP : stablePositions.BOTTOM</span><br><span class="line">    );</span><br><span class="line">    <span class="keyword">const</span> getStablePositionY = useCallback(</span><br><span class="line">        stablePosition =&gt; (</span><br><span class="line">            stablePosition === stablePositions.TOP</span><br><span class="line">                ? props.current.topBoundY : props.current.bottomBoundY</span><br><span class="line">        ), []</span><br><span class="line">    );</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 位置动画</span></span><br><span class="line">    <span class="keyword">const</span> position = useRef(<span class="keyword">new</span> Animated.ValueXY(&#123; <span class="attr">y</span>: defaultY, <span class="attr">x</span>: <span class="number">0</span> &#125;)).current;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 动画position到指定位置</span></span><br><span class="line">    <span class="keyword">const</span> transitionTo = useCallback(<span class="function">(<span class="params">stablePosition</span>) =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">const</span> isBottom = stablePosition === stablePositions.BOTTOM;</span><br><span class="line">        Animated.spring(</span><br><span class="line">            position,</span><br><span class="line">            &#123; <span class="attr">toValue</span>: isBottom ? props.current.bottomBoundY : props.current.topBoundY &#125;</span><br><span class="line">        ).start(<span class="function"><span class="params">()</span> =&gt;</span> &#123;&#125;);</span><br><span class="line"></span><br><span class="line">        lastStablePosition.current = stablePosition;</span><br><span class="line">        <span class="keyword">if</span> (isBottom) props.current.onBottomReached();</span><br><span class="line">        <span class="keyword">else</span> props.current.onTopReached();</span><br><span class="line">    &#125;);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 手势监听器</span></span><br><span class="line">    <span class="keyword">const</span> panResponder = useMemo(<span class="function"><span class="params">()</span> =&gt;</span> PanResponder.create(&#123;</span><br><span class="line">        onStartShouldSetPanResponder: <span class="function"><span class="params">()</span> =&gt;</span> <span class="literal">true</span>,</span><br><span class="line">        onMoveShouldSetPanResponderCapture: <span class="function">(<span class="params">evt, gesture</span>) =&gt;</span> &#123;</span><br><span class="line">            <span class="keyword">const</span> verticalCapture = getVerticalPanValue(&#123;</span><br><span class="line">                upValue: props.current.captureUp,</span><br><span class="line">                downValue: props.current.captureDown,</span><br><span class="line">                elseValue: <span class="literal">false</span></span><br><span class="line">            &#125;, gesture);</span><br><span class="line"></span><br><span class="line">            <span class="keyword">return</span> verticalCapture;</span><br><span class="line">        &#125;,</span><br><span class="line">        onPanResponderMove: <span class="function">(<span class="params">e, gesture</span>) =&gt;</span> &#123;</span><br><span class="line">            <span class="keyword">const</span> lock = getVerticalPanValue(&#123;</span><br><span class="line">                upValue: props.current.lockUp,</span><br><span class="line">                downValue: props.current.lockDown,</span><br><span class="line">                elseValue: <span class="literal">false</span></span><br><span class="line">            &#125;, gesture);</span><br><span class="line">            <span class="keyword">if</span> (lock) <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">const</span> targetY = getStablePositionY(lastStablePosition.current) + gesture.dy;</span><br><span class="line">            <span class="keyword">const</span> limitedTargetY = limitInBetween(</span><br><span class="line">                targetY, [props.current.topBoundY, props.current.bottomBoundY]</span><br><span class="line">            );</span><br><span class="line">            <span class="keyword">if</span> (limitedTargetY === targetY) &#123; <span class="comment">// in bound</span></span><br><span class="line">                position.setValue(&#123; <span class="attr">y</span>: targetY &#125;);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123; <span class="comment">// over bound (use rubberband)</span></span><br><span class="line">                <span class="keyword">const</span> overDistance = closerToZero(</span><br><span class="line">                    targetY - props.current.topBoundY, targetY - props.current.bottomBoundY</span><br><span class="line">                );</span><br><span class="line">                position.setValue(&#123;</span><br><span class="line">                    y: limitedTargetY + flag(overDistance) * calculateRubberband(</span><br><span class="line">                        <span class="built_in">Math</span>.abs(overDistance)</span><br><span class="line">                    )</span><br><span class="line">                &#125;);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        onPanResponderRelease: <span class="function">(<span class="params">e, gesture</span>) =&gt;</span> &#123;</span><br><span class="line">            <span class="keyword">const</span> lock = getVerticalPanValue(&#123;</span><br><span class="line">                upValue: props.current.lockUp,</span><br><span class="line">                downValue: props.current.lockDown,</span><br><span class="line">                elseValue: <span class="literal">false</span></span><br><span class="line">            &#125;, gesture);</span><br><span class="line">            <span class="keyword">if</span> (lock) <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">const</span> &#123; dy &#125; = gesture;</span><br><span class="line">            <span class="keyword">const</span> absoluteDy = <span class="built_in">Math</span>.abs(dy);</span><br><span class="line">            <span class="keyword">const</span> flagDy = flag(dy);</span><br><span class="line">            <span class="keyword">if</span> (lastStablePosition.current === stablePositions.TOP</span><br><span class="line">                &amp;&amp; absoluteDy &gt; props.current.thresholdDown</span><br><span class="line">                &amp;&amp; flagDy &gt; <span class="number">0</span>) &#123; <span class="comment">// to down</span></span><br><span class="line">                transitionTo(stablePositions.BOTTOM);</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (lastStablePosition.current === stablePositions.BOTTOM</span><br><span class="line">                &amp;&amp; absoluteDy &gt; props.current.thresholdUp</span><br><span class="line">                &amp;&amp; flagDy &lt; <span class="number">0</span>) &#123; <span class="comment">// to up</span></span><br><span class="line">                transitionTo(stablePositions.TOP);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123; <span class="comment">// reset position</span></span><br><span class="line">                transitionTo(lastStablePosition.current);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;), [position]);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">        panResponder,</span><br><span class="line">        position</span><br><span class="line">    &#125;;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">calculateRubberband</span>(<span class="params">overDistance</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">Math</span>.sqrt(overDistance);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">getVerticalPanValue</span>(<span class="params">&#123; upValue, downValue, elseValue &#125;, gesture</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">const</span> &#123; dx, dy &#125; = gesture;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 竖直滑动</span></span><br><span class="line">    <span class="keyword">const</span> panRatio = <span class="built_in">Math</span>.abs(dx / dy);</span><br><span class="line">    <span class="keyword">const</span> verticalDrag = panRatio &lt; <span class="number">2</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!verticalDrag) <span class="keyword">return</span> elseValue;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (dy &lt; <span class="number">0</span>) &#123; <span class="comment">// up</span></span><br><span class="line">        <span class="keyword">return</span> upValue;</span><br><span class="line">    &#125; <span class="keyword">if</span> (dy &gt; <span class="number">0</span>) &#123; <span class="comment">// down</span></span><br><span class="line">        <span class="keyword">return</span> downValue;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> elseValue;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="3-交互视频"><a href="#3-交互视频" class="headerlink" title="3. 交互视频"></a>3. 交互视频</h2><ol>
+<li><p>能力1，滑动中识别（理想情况，用户只需交互一次）</p>
+<video src="https://vodkgeyttp9c.vod.126.net/vodkgeyttp8/8vdQyfjG_3902554063_uhd.mp4?ts=1949278835&rid=7859AE92117216E8AD0E345795682128&rl=0&rs=cWazXiGUycMdyAhsKhOXEkfeKHPGccOq&sign=add655382502b1a3a778fbade5022bf0&coverId=cxnrl57ADPi6eE9Tj47Y6w==/109951166509772321&infoId=1357303" style="max-width:300px;" />
+</li>
+<li><p>能力2，滑动开始时识别（用户需要拖动两次，第一次拖动内部列表，第二次拖动外部抽屉）</p>
+<video src="https://vodkgeyttp9c.vod.126.net/vodkgeyttp8/79544nqW_3902564433_uhd.mp4?ts=1949279212&rid=7859AE92117216E8AD0E345795682128&rl=0&rs=aDZoqyiQtMxNyNsLqRJRjZoOJFXSQDkf&sign=a3f34774922993db2418e88d86434ce7&coverId=UX3CLuL7ikvtuQkTdxsZRw==/109951166509784344&infoId=1354343" style="max-width:300px;" />
+
+
+</li>
+</ol>
 
       
     </div>
@@ -1036,206 +1876,11 @@ For details in the URI parameter of <code>ajv.getSchema</code> function, please 
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/16/merge-data/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Zile GUO">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Zile GUO">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/07/16/merge-data/" class="post-title-link" itemprop="url">Shared Contents Store - Merge Data with No Web Server</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-
-              <time title="Created: 2020-07-16 11:25:59" itemprop="dateCreated datePublished" datetime="2020-07-16T11:25:59+08:00">2020-07-16</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
-                </span>
-                <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2021-09-24 14:57:06" itemprop="dateModified" datetime="2021-09-24T14:57:06+08:00">2021-09-24</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              <span class="post-meta-item-text">In</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/code/" itemprop="url" rel="index"><span itemprop="name">code</span></a>
-                </span>
-                  , 
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/code/frontend/" itemprop="url" rel="index"><span itemprop="name">frontend</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>Work in progress…</p>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/15/react-performance/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Zile GUO">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Zile GUO">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/07/15/react-performance/" class="post-title-link" itemprop="url">Participants Store - React Performance Optimization Practice</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-
-              <time title="Created: 2020-07-15 20:23:50" itemprop="dateCreated datePublished" datetime="2020-07-15T20:23:50+08:00">2020-07-15</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
-                </span>
-                <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2021-09-24 14:57:06" itemprop="dateModified" datetime="2021-09-24T14:57:06+08:00">2021-09-24</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              <span class="post-meta-item-text">In</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/code/" itemprop="url" rel="index"><span itemprop="name">code</span></a>
-                </span>
-                  , 
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/code/frontend/" itemprop="url" rel="index"><span itemprop="name">frontend</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>In our <a href="https://github.com/JitsiPartyTeam/jitsi-party" target="_blank" rel="noopener">jitsi-party project</a>, participants store have nested data structure for UI to render. For example,  <code>pariticpants - some participant - pose - position</code>. In <a href="https://github.com/hasevr/jitsi-party" target="_blank" rel="noopener">prototype 1</a>, We’ve found that naive way of updating UI would cause lag after user interaction (like change local participant position with keyboard). For more fluent interaction, the following are our tries to optimize the performance of React.</p>
-<h2 id="1-Avoid-using-props-for-message-passing"><a href="#1-Avoid-using-props-for-message-passing" class="headerlink" title="1. Avoid using props for message passing"></a>1. Avoid using props for message passing</h2><h3 id="Theory"><a href="#Theory" class="headerlink" title="Theory"></a>Theory</h3><p>In <a href="https://medium.com/@alexandereardon/performance-optimisations-for-react-applications-b453c597b191" target="_blank" rel="noopener">round 1</a> and <a href="https://medium.com/@alexandereardon/performance-optimisations-for-react-applications-round-2-2042e5c9af97" target="_blank" rel="noopener">round 2</a>, author have introduced ways to improve performance.</p>
-<p>He proposed to use：</p>
-<ol>
-<li><p>use <code>shouldComponentUpdate</code> to avoid re-render on sibling nodes.</p>
-</li>
-<li><p>connected components to update specific node on virtual DOM directly. That avoids costs on reconciliation &amp; render on its ancestor nodes.</p>
-</li>
-</ol>
-<h3 id="Practice"><a href="#Practice" class="headerlink" title="Practice"></a>Practice</h3><p>In storybook, <code>store-participants</code> demonstrate how we put that idea into practice. (MobX + React Hooks)</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> participants = &#123;</span><br><span class="line">    particpant_0: &#123;</span><br><span class="line">        pose: &#123;</span><br><span class="line">            position: [<span class="number">0</span>, <span class="number">0</span>],</span><br><span class="line">            orientation: <span class="number">0</span></span><br><span class="line">        &#125;,</span><br><span class="line">        information: &#123;</span><br><span class="line">            name: <span class="string">'name'</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;,</span><br><span class="line">    ...</span><br><span class="line">    participant_N: &#123;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>We want to render participants list into UI. If we change only one participants’ position, let’s see how it would works:</p>
-<ol>
-<li><p>If we use props to pass the change from root node, a lot of computation time would be wasted on reconciling and rendering the data that did not change:</p>
-<img src="/2020/07/15/react-performance/RenderPerformance3.png" class="" title="Render Performance 3">
-</li>
-<li><p>To avoid re-rendering on sibling nodes (yellow ones on the upper image), we can use <code>useMemo</code> hook to remember the participant node. Only re-render it  when the id of participant have changed (add / delete).</p>
- <img src="/2020/07/15/react-performance/RenderPerformance2.png" class="" title="Render Performance 2">
-</li>
-<li><p>If we connect every participant directly to the store (connect to MobX using <code>useContext</code> hook), parent nodes would not be reconciliated.</p>
-<img src="/2020/07/15/react-performance/RenderPerformance1.png" class="" title="Render Performance 1">
-
-</li>
-</ol>
-<h2 id="2-Batch-state-updates"><a href="#2-Batch-state-updates" class="headerlink" title="2. Batch state updates"></a>2. Batch state updates</h2><h3 id="Practice-1"><a href="#Practice-1" class="headerlink" title="Practice"></a>Practice</h3><h4 id="Problem"><a href="#Problem" class="headerlink" title="Problem"></a>Problem</h4><p>In map, we allow user to transform 2 things: 1. the pose of map itself, 2. pose of local participant relative to the map.  That means we have 2 coordinates: 1. screen coordinate, what mouse use, 2. map coordinate, what local participant use.</p>
-<p>For a point P, $P_{ScreenCoordinate} = M * P_{MapCoordinate}$, where $M$ is transform matrix of map coordinate to screen coordinate.</p>
-<p>So,</p>
-<ul>
-<li>In <code>Map</code> component, we would update $M$ when user drag the map.</li>
-<li>In every <code>Participant</code> component, we would have to refer to $M$ when user drag the participant, to convert mouse position from screen coordinate to map coordinate. Then we could update the position of dragged participant.</li>
-</ul>
-<p>The problem is, since we use context to pass $M$ to <code>Participant</code>, every time we drag <code>Map</code>, every <code>Participant</code> would have to update because $M$ changed.</p>
-<h4 id="Solution"><a href="#Solution" class="headerlink" title="Solution"></a>Solution</h4><p>To avoid updating <code>Participant</code> when only <code>Map</code> is dragged with the assumption: only <strong>one component</strong> would be dragged at the one time.</p>
-<p>With above assumption, we could hide the change on $M$ to <code>Participant</code> when <code>Map</code> is being dragged. Only when drag gesture is ended, we commit the final $M$ to a new state $CommitedM$, and pass $CommitedM$ to <code>Participant</code>.</p>
-<h2 id="3-Using-dynamic-CSS"><a href="#3-Using-dynamic-CSS" class="headerlink" title="3. Using dynamic CSS"></a>3. Using dynamic CSS</h2><h3 id="Theory-1"><a href="#Theory-1" class="headerlink" title="Theory"></a>Theory</h3><p>Calling <code>render</code> is not the only way to update styles.</p>
-<h3 id="Practice-2"><a href="#Practice-2" class="headerlink" title="Practice"></a>Practice</h3><h4 id="Problem-1"><a href="#Problem-1" class="headerlink" title="Problem"></a>Problem</h4><p>In <code>Map</code> component, we allow user to rotate their map. However, user would not willing to see their video avatars also being rotated. Thus, we have to counter rotate those avatars.</p>
-<p>The most simple way is to pass down the transform matrix $M$ down to every <code>Participant</code>. However, that would cause every <code>Participant</code> component render function being re-executed when user change <code>Map</code> rotation.</p>
-<h4 id="Solution-1"><a href="#Solution-1" class="headerlink" title="Solution"></a>Solution</h4><p>A better way is to create a same CSS class for all <code>Participant</code>s. In that class we update the transform to the counter rotation of current $M$. Then we pass the class name to all participants.</p>
-<p>Since the class name would not change. React would not re-render those <code>Participant</code>s when rotating <code>Map</code>. CSS would automatically apply new styles to them.</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><a href="https://medium.com/@alexandereardon/dragging-react-performance-forward-688b30d40a33" target="_blank" rel="noopener">Dragging React Performance Forward</a></li>
-</ul>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
+  <nav class="pagination">
+    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="Next page"></i></a>
+  </nav>
 
 
 
@@ -1300,13 +1945,17 @@ For details in the URI parameter of <code>ajv.getSchema</code> function, please 
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">8</span>
+          <span class="site-state-item-count">12</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
-        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-count">13</span>
         <span class="site-state-item-name">categories</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">tags</span>
       </div>
   </nav>
 </div>
@@ -1332,7 +1981,7 @@ For details in the URI parameter of <code>ajv.getSchema</code> function, please 
 <div class="copyright">
   
   &copy; 
-  <span itemprop="copyrightYear">2021</span>
+  <span itemprop="copyrightYear">2022</span>
   <span class="with-love">
     <i class="fa fa-user"></i>
   </span>
@@ -1391,59 +2040,6 @@ For details in the URI parameter of <code>ajv.getSchema</code> function, please 
   
 
   
-      
-
-<script>
-  if (typeof MathJax === 'undefined') {
-    window.MathJax = {
-      loader: {
-        source: {
-          '[tex]/amsCd': '[tex]/amscd',
-          '[tex]/AMScd': '[tex]/amscd'
-        }
-      },
-      tex: {
-        inlineMath: {'[+]': [['$', '$']]},
-        tags: 'ams'
-      },
-      options: {
-        renderActions: {
-          findScript: [10, doc => {
-            document.querySelectorAll('script[type^="math/tex"]').forEach(node => {
-              const display = !!node.type.match(/; *mode=display/);
-              const math = new doc.options.MathItem(node.textContent, doc.inputJax[0], display);
-              const text = document.createTextNode('');
-              node.parentNode.replaceChild(text, node);
-              math.start = {node: text, delim: '', n: 0};
-              math.end = {node: text, delim: '', n: 0};
-              doc.math.push(math);
-            });
-          }, '', false],
-          insertedScript: [200, () => {
-            document.querySelectorAll('mjx-container').forEach(node => {
-              let target = node.parentNode;
-              if (target.nodeName.toLowerCase() === 'li') {
-                target.parentNode.classList.add('has-jax');
-              }
-            });
-          }, '', false]
-        }
-      }
-    };
-    (function () {
-      var script = document.createElement('script');
-      script.src = '//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
-      script.defer = true;
-      document.head.appendChild(script);
-    })();
-  } else {
-    MathJax.startup.document.state(0);
-    MathJax.texReset();
-    MathJax.typeset();
-  }
-</script>
-
-    
 
   
 

@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="哈希与加密从下图中，我们可以看到哈希与加密的不同：  哈希是单向的，而加密是可逆的。 两者所生成结果的信息量不同：哈希算法通常用于数据摘要，生成相同长度的文本；而加密算法生成的密文长度与明文长度有关，加密生成的密文需要能够被解密恢复成明文。   哈希算法一个优秀的哈希算法，需要满足以下几个特性：  正向快速：给定原文和 Hash 算法，在有限时间和有限资源内能计算得到 Hash 值； 逆向困难：给">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【学习笔记】Web安全 - 哈希">
+<meta property="og:url" content="http://yoursite.com/2021/12/13/web-security-1/index.html">
+<meta property="og:site_name" content="Zile GUO">
+<meta property="og:description" content="哈希与加密从下图中，我们可以看到哈希与加密的不同：  哈希是单向的，而加密是可逆的。 两者所生成结果的信息量不同：哈希算法通常用于数据摘要，生成相同长度的文本；而加密算法生成的密文长度与明文长度有关，加密生成的密文需要能够被解密恢复成明文。   哈希算法一个优秀的哈希算法，需要满足以下几个特性：  正向快速：给定原文和 Hash 算法，在有限时间和有限资源内能计算得到 Hash 值； 逆向困难：给">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://pic2.zhimg.com/737fa75c8409117d6202fd3b0c636d21_r.jpg">
+<meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Simple_rainbow_search.svg/650px-Simple_rainbow_search.svg.png">
+<meta property="og:image" content="https://wikimedia.org/api/rest_v1/media/math/render/svg/bbacb4ee3811ce261fa6023c6de90718e22c7b49">
+<meta property="article:published_time" content="2021-12-13T10:30:55.000Z">
+<meta property="article:modified_time" content="2022-01-04T02:54:37.280Z">
+<meta property="article:author" content="Zile GUO">
+<meta property="article:tag" content="security">
+<meta property="article:tag" content="web">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://pic2.zhimg.com/737fa75c8409117d6202fd3b0c636d21_r.jpg">
+
+<link rel="canonical" href="http://yoursite.com/2021/12/13/web-security-1/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>【学习笔记】Web安全 - 哈希 | Zile GUO</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Zile GUO</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/12/13/web-security-1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Zile GUO">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Zile GUO">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          【学习笔记】Web安全 - 哈希
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-12-13 18:30:55" itemprop="dateCreated datePublished" datetime="2021-12-13T18:30:55+08:00">2021-12-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2022-01-04 10:54:37" itemprop="dateModified" datetime="2022-01-04T10:54:37+08:00">2022-01-04</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="哈希与加密"><a href="#哈希与加密" class="headerlink" title="哈希与加密"></a>哈希与加密</h3><p>从下图中，我们可以看到哈希与加密的不同：</p>
+<ol>
+<li>哈希是单向的，而加密是可逆的。</li>
+<li>两者所生成结果的信息量不同：哈希算法通常用于数据摘要，生成相同长度的文本；而加密算法生成的密文长度与明文长度有关，加密生成的密文需要能够被解密恢复成明文。</li>
+</ol>
+<p><img src="https://pic2.zhimg.com/737fa75c8409117d6202fd3b0c636d21_r.jpg" alt=""></p>
+<h3 id="哈希算法"><a href="#哈希算法" class="headerlink" title="哈希算法"></a>哈希算法</h3><p>一个优秀的哈希算法，需要满足以下几个特性：</p>
+<ol>
+<li>正向快速：给定原文和 Hash 算法，在有限时间和有限资源内能计算得到 Hash 值；</li>
+<li>逆向困难：给定（若干）Hash 值，在有限时间内无法（基本不可能）逆推出原文；</li>
+<li>输入敏感：原始输入信息发生任何改变，新产生的 Hash 值都应该发生很大变化；</li>
+<li>碰撞避免：很难找到两段内容不同的明文，使得它们的 Hash 值一致（即发生碰撞）。<ul>
+<li>弱抗碰撞性：给定原文前提下，无法找到与之碰撞的其它原文</li>
+<li>强抗碰撞性：无法找到任意两个可碰撞的原文</li>
+</ul>
+</li>
+</ol>
+<p>常见的算法有：</p>
+<ol>
+<li>MD：主要包括 MD4 和 MD5 两个算法。MD4（RFC 1320）是 MIT 的 Ronald L. Rivest 在 1990 年设计的，其输出为 128 位。MD4 已证明不够安全。MD5（RFC 1321）是 Rivest 于 1991 年对 MD4 的改进版本。它对输入仍以 512 位进行分组，其输出是 128 位。MD5 比 MD4 更加安全，但过程更加复杂，计算速度要慢一点。MD5 已于 2004 年被成功碰撞，其安全性已不足应用于商业场景。</li>
+<li>SHA：由美国国家标准与技术院（National Institute of Standards and Technology，NIST）征集制定。首个实现 SHA-0 算法于 1993 年问世，1998 年即遭破解。随后的修订版本 SHA-1 算法在 1995 年面世，它的输出为长度 160 位的 Hash 值，安全性更好。SHA-1 设计采用了 MD4 算法类似原理。SHA-1 已于 2005 年被成功碰撞，意味着无法满足商用需求。为了提高安全性，NIST 后来制定出更安全的 SHA-224、SHA-256、SHA-384 和 SHA-512 算法（统称为 SHA-2 算法）。新一代的 SHA-3 相关算法也正在研究中。</li>
+</ol>
+<h3 id="数字摘要"><a href="#数字摘要" class="headerlink" title="数字摘要"></a>数字摘要</h3><p>由于哈希算法碰撞避免的特性，它通常被用于进行数字摘要。通过生成的数字摘要，可以进行数据的校验。如：网络下载的资源是否遭受过篡改、鉴权协议（<a href="https://baike.baidu.com/item/%E6%8C%91%E6%88%98%E5%BA%94%E7%AD%94%E6%96%B9%E5%BC%8F/191313" target="_blank" rel="noopener">挑战应答方式</a>）。下面我们将以用户密码校验这个应用场景为例看下哈希算法的用途。</p>
+<h4 id="用户密码校验"><a href="#用户密码校验" class="headerlink" title="用户密码校验"></a>用户密码校验</h4><p>为了保障用户密码的安全性，在数据传输与存储的过程中直接使用用户密码实际都是不安全的。通过哈希生成数字签名，在传输和校验的过程中，只匹配使用密码生成的数字签名而不是密码，可以保障密码的安全性。在以下的场景中，我们会假设：1. 数据的传输是不安全的，数据可能会被中间人截获、重放；2. 数据的存储也是不安全的，攻击者可能会<a href="https://www.zhihu.com/question/40059755/answer/392404577" target="_blank" rel="noopener">拖库</a>、撞库。</p>
+<p><strong>使用明文或者加密</strong></p>
+<p>通过明文传输显然是不安全的。而即便使用加密算法，一旦私钥泄露、数据库泄露，用户密码同样也会被泄露。</p>
+<p><strong>使用哈希</strong></p>
+<p>单纯使用哈希和明文传输实际上并没有本质区别。</p>
+<ol>
+<li>从数据传输角度来看：攻击者可以进行中间人重放攻击，截取用户登录请求，使用同样的哈希值即可伪造用户进行登录。</li>
+<li>从数据存储角度来看：攻击者获取数据库后，可以使用rainbow table，从哈希值中反向计算处可能的密码明文。</li>
+</ol>
+<p><strong>使用哈希+动态salt</strong></p>
+<p>所谓salt就是一段随机的字符串，通过在原文上加上这段字符串，可以增加攻击的成本。常用的salt就是验证码，由于验证码是动态生成的，这保障了每次能够成功登录的数字签名是不同的。它的优势体现在：</p>
+<ol>
+<li>从数据传输角度来看：由于数字签名是动态的，无法再实施中间人重放攻击。</li>
+<li>从数据存储角度来看：由于每个rainbow table对应的是一套哈希算法，因此对每个验证码都需要生成一个独立的rainbow table，这极大增大了暴力破解的成本。</li>
+</ol>
+<p><strong>使用bcrypt, scrypt</strong></p>
+<p>随着内存大小的提升、和显卡并行能力的支持，使用哈希+动态salt的方式也不再那么安全。而<a href="https://en.wikipedia.org/wiki/Bcrypt" target="_blank" rel="noopener">bscrypt</a>、scrypt这类算法都有一个特点，即：算法中都有个<strong>因子</strong>，用于指明计算密码摘要所需要的资源和时间，也就是<strong>计算强度</strong>。计算强度越大，攻击者建立rainbow table越困难，以至于不可继续。由于计算强度因子的存在，随着算力的提升，通过调整因子，可以保障密码仍然不轻易被攻破。同时，算法的设计也确保了已有用户仍然能够正常登录。</p>
+<p>以bscrypt为例，一个bscrypt的hash字符串的格式如下。由于cost字段的存在，即便后来调整了计算强度因子，老的用户仍然可以通过原有的低cost哈希值进行登录。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy</span><br><span class="line">\__&#x2F;\&#x2F; \____________________&#x2F;\_____________________________&#x2F;</span><br><span class="line">Alg Cost      Salt                        Hash</span><br></pre></td></tr></table></figure>
+
+<p>bcrypt算法的结果就是使用<a href="https://en.wikipedia.org/wiki/Blowfish_(cipher)" target="_blank" rel="noopener">Blowfish</a>算法对文本”OrpheanBeholderScryDoubt”进行64次加密的结果。它利用了blowfish进行key change<a href="https://en.wikipedia.org/wiki/Blowfish_(cipher)#:~:text=Each%20new%20key%20requires%20the%20pre%2Dprocessing%20equivalent%20of%20encrypting%20about%204%20kilobytes%20of%20text%2C%20which%20is%20very%20slow%20compared%20to%20other%20block%20ciphers." target="_blank" rel="noopener">操作慢的特性</a>，在key初始化的时候调用<code>2^cost</code>次ExpandKey函数。</p>
+<h3 id="彩虹表"><a href="#彩虹表" class="headerlink" title="彩虹表"></a>彩虹表</h3><p>​    使用哈希来替代明文存储数据也并非安全的。仅管哈希无法通过直接逆向计算得到密码明文，攻击者仍然可以通过暴力计算得到明文和哈希的映射关系。以此间接地获得密码明文。</p>
+<p>​    <a href="https://en.wikipedia.org/wiki/Rainbow_table" target="_blank" rel="noopener">rainbow table</a>就是一个预先计算好的存储哈希函数输入输出映射关系的表。通过空间换时间，攻击者可以通过表查询的方式快速获得密码明文。值得一提的是，rainbow table使用[哈希链](<a href="https://en.wikipedia.org/wiki/Rainbow_table#:~:text=to" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/Rainbow_table#:~:text=to</a> the right.-,precomputed hash chains)的方式来减小表的大小。在rainbow table中只存储哈希链的<strong>开始值</strong>和<strong>结束值</strong>，在查询表时：</p>
+<ol>
+<li>计算输入哈希值的哈希链</li>
+<li>每次计算后，尝试匹配表中哈希链的<strong>结束值</strong></li>
+<li>匹配到结束值后，即可查询到包含该输入的哈希链的<strong>开始值</strong></li>
+<li>最后，通过开始值即可还原整条哈希链，在哈希链中我们就可以获取输入哈希值所对应的明文</li>
+</ol>
+<p>以下图为例：</p>
+<ol>
+<li>计算哈希链，尝试与rainbow table（左侧）中<strong>结束值</strong>（黄色）进行匹配</li>
+<li>当执行两次R函数时，匹配到了项（passwd - linux23）</li>
+<li>通过<strong>开始值</strong>（绿色）恢复哈希链，获取密码 - <code>culture</code></li>
+</ol>
+<p><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Simple_rainbow_search.svg/650px-Simple_rainbow_search.svg.png" alt="Simple rainbow search.svg"></p>
+<p>可以看到，在图中，计算哈希链使用了多个R函数。这是一种减少哈希碰撞的优化的算法：只要不是在不同哈希链的同个序号发生碰撞，哈希链就不会出现合并的问题（因为R函数不同，同样的哈希值可以计算出不同结果）。仅管无法避免原型链的重复，但这可以减小总体碰撞的数量，增大指定表大小下获得正确结果的可能性。但同时它也将查询单个项的时间复杂度由O(N)增加到了O(N^2)。（但这是可以接受的，因为如果使用普通的算法，rainbow table在表项增加时会由于哈希链合并问题而变得低效；而通常会增加表的数量，在每个表中查询来解决这个问题，但这同样也会增加查询的次数，而且还增加了表大小。）</p>
+<blockquote>
+<p>哈希链：在哈希链中，有两个关键的函数：1. H: hash function 哈希函数；2. R: reduction function 规约函数（能够将任意哈希值映射成特定字符的纯文本值，并非哈希函数的反函数）。这样，通过反复执行R和H，我们就可以得到一条哈希链（如下图所示）。由于H和R已知，对于任意输入的哈希值，通过计算<strong>结束值</strong>（即：kiebgt），我们可以判断它是否在数据库存储的某条哈希链之上；而通过<strong>开始值</strong>（即：aaaaaa）我们可以完整复原整条哈希链。</p>
+</blockquote>
+<p><img src="https://wikimedia.org/api/rest_v1/media/math/render/svg/bbacb4ee3811ce261fa6023c6de90718e22c7b49" alt="{\mathbf  {aaaaaa}}\,{\xrightarrow[ {\;H\;}]{}}\,{\mathrm  {281DAF40}}\,{\xrightarrow[ {\;R\;}]{}}\,{\mathrm  {sgfnyd}}\,{\xrightarrow[ {\;H\;}]{}}\,{\mathrm  {920ECF10}}\,{\xrightarrow[ {\;R\;}]{}}\,{\mathbf  {kiebgt}}"></p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><a href="https://oiipdf.com/security-for-web-developers" target="_blank" rel="noopener">Download Security for Web Developers PDF</a> （动物书）</li>
+<li><a href="https://github.com/FallibleInc/security-guide-for-developers" target="_blank" rel="noopener">security-guide-for-developers</a> (已长年未更新，但提供了web安全所涉及知识的提纲)</li>
+<li><a href="https://github.com/TransformCore/security-guide-for-developers" target="_blank" rel="noopener"> security-guide-for-developers</a></li>
+<li>知乎<ul>
+<li><a href="https://www.zhihu.com/question/25539382/answer/547509246" target="_blank" rel="noopener">Web <em>前端</em>密码<em>加密</em>是否有意义？</a></li>
+<li><a href="https://zhuanlan.zhihu.com/p/22289839" target="_blank" rel="noopener">当我们在谈论<em>前端加密</em>时，我们在谈些什么</a></li>
+<li><a href="https://www.zhihu.com/question/20479856/answer/15243887" target="_blank" rel="noopener">互联网网站应该如何存储密码？ - 韩竹的回答 - 知乎</a></li>
+</ul>
+</li>
+<li><a href="https://yeasy.gitbook.io/blockchain_guide/05_crypto/hash#chang-jian-suan-fa" target="_blank" rel="noopener">Hash 算法与数字摘要</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/security/" rel="tag"># security</a>
+              <a href="/tags/web/" rel="tag"># web</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/12/05/react-18/" rel="prev" title="React 18前瞻">
+      <i class="fa fa-chevron-left"></i> React 18前瞻
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2022/08/03/eslint-error/" rel="next" title="Eslint报错排查复盘">
+      Eslint报错排查复盘 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#哈希与加密"><span class="nav-number">1.</span> <span class="nav-text">哈希与加密</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#哈希算法"><span class="nav-number">2.</span> <span class="nav-text">哈希算法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#数字摘要"><span class="nav-number">3.</span> <span class="nav-text">数字摘要</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#用户密码校验"><span class="nav-number">3.1.</span> <span class="nav-text">用户密码校验</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#彩虹表"><span class="nav-number">4.</span> <span class="nav-text">彩虹表</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#References"><span class="nav-number"></span> <span class="nav-text">References</span></a></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Zile GUO</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">12</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">tags</span>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Zile GUO</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

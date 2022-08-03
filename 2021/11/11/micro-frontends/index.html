@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="背景微前端（Micro-Frontends）是一种类似于微服务的架构，它将微服务的理念应用于 Web 端。它将 Web 应用由单一的单体应用拆解为功能的组合。每个功能可以隶属于不同的团队，使用不同的前端架构，部署在不同的地址。 微前端来源于前端业务间开发流程接耦的需求。即希望在从开发到上线的整个业务流程上，各个团队能够独立进行互不干扰：  开发团队组织结构的演变：   微前端团队的组织结构：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="接入微前端需要注意什么">
+<meta property="og:url" content="http://yoursite.com/2021/11/11/micro-frontends/index.html">
+<meta property="og:site_name" content="Zile GUO">
+<meta property="og:description" content="背景微前端（Micro-Frontends）是一种类似于微服务的架构，它将微服务的理念应用于 Web 端。它将 Web 应用由单一的单体应用拆解为功能的组合。每个功能可以隶属于不同的团队，使用不同的前端架构，部署在不同的地址。 微前端来源于前端业务间开发流程接耦的需求。即希望在从开发到上线的整个业务流程上，各个团队能够独立进行互不干扰：  开发团队组织结构的演变：   微前端团队的组织结构：">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://micro-frontends.org/ressources/diagrams/organisational/monolith-frontback-microservices.png">
+<meta property="og:image" content="https://micro-frontends.org/ressources/diagrams/organisational/verticals-headline.png">
+<meta property="og:image" content="https://p5.music.126.net/obj/wonDlsKUwrLClGjCm8Kx/11412748117/497e/2320/4b0a/93b0a666012108c98fe4bb8285774d6e.png">
+<meta property="og:image" content="https://p6.music.126.net/obj/wonDlsKUwrLClGjCm8Kx/11414823066/584d/ed01/1e73/ab6bcd7eaa07b41d4b3137062fd099c7.png">
+<meta property="article:published_time" content="2021-11-11T12:18:19.000Z">
+<meta property="article:modified_time" content="2021-11-11T12:18:19.100Z">
+<meta property="article:author" content="Zile GUO">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://micro-frontends.org/ressources/diagrams/organisational/monolith-frontback-microservices.png">
+
+<link rel="canonical" href="http://yoursite.com/2021/11/11/micro-frontends/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>接入微前端需要注意什么 | Zile GUO</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Zile GUO</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2021/11/11/micro-frontends/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Zile GUO">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Zile GUO">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          接入微前端需要注意什么
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-11-11 20:18:19" itemprop="dateCreated datePublished" datetime="2021-11-11T20:18:19+08:00">2021-11-11</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/" itemprop="url" rel="index"><span itemprop="name">code</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/" itemprop="url" rel="index"><span itemprop="name">frontend</span></a>
+                </span>
+                  , 
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/code/frontend/micro-frontends/" itemprop="url" rel="index"><span itemprop="name">micro frontends</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p><a href="https://micro-frontends.org/" target="_blank" rel="noopener">微前端（Micro-Frontends）</a>是一种类似于微服务的架构，它将微服务的理念应用于 Web 端。它将 Web 应用由单一的单体应用<strong>拆解</strong>为<strong>功能</strong>的<strong>组合</strong>。每个功能可以隶属于不同的团队，使用不同的前端架构，部署在不同的地址。</p>
+<p>微前端来源于前端业务间<strong>开发流程接耦</strong>的需求。即希望在从开发到上线的整个业务流程上，各个团队能够独立进行互不干扰：</p>
+<ul>
+<li><p>开发团队组织结构的演变：</p>
+<p><img src="https://micro-frontends.org/ressources/diagrams/organisational/monolith-frontback-microservices.png" alt="Monolithic Frontends"></p>
+</li>
+<li><p>微前端团队的组织结构：</p>
+<p><img src="https://micro-frontends.org/ressources/diagrams/organisational/verticals-headline.png" alt="End-To-End Teams with Micro Frontends"></p>
+</li>
+</ul>
+<h3 id="定义"><a href="#定义" class="headerlink" title="定义"></a>定义</h3><p>微前端是这样一种架构风格：将前端应用分解成一些更小、更简单的能够独立开发、测试、部署的小块，而在用户看来仍然是内聚的单个产品</p>
+<blockquote>
+<p>Micro Frontend is a pattern to emerge for decomposing frontend monoliths into smaller, simpler chunks that can be developed, tested and deployed independently, while still appearing to customers as a single cohesive product.</p>
+<p>摘自 <a href="https://front-hub.rdstation.com.br/docs/microfrontend" target="_blank" rel="noopener">https://front-hub.rdstation.com.br/docs/microfrontend</a></p>
+</blockquote>
+<p>即:</p>
+<ol>
+<li>对用户而言：是一个完整的单个产品</li>
+<li>对开发者而言：是多个独立交付的前端应用</li>
+</ol>
+<h3 id="例子"><a href="#例子" class="headerlink" title="例子"></a>例子</h3><p>如下是一个典型的微前端页面的结构。在一个公共的主应用中挂载了两个独立的子应用。三个应用代码分别存储于不同仓库，同时也部署于不同的地址。</p>
+<p><img src="https://p5.music.126.net/obj/wonDlsKUwrLClGjCm8Kx/11412748117/497e/2320/4b0a/93b0a666012108c98fe4bb8285774d6e.png" alt="image"></p>
+<p>由于子应用资源在运行时进行加载，满足了子应用间独立交付，互不干扰的需求。</p>
+<h3 id="广义的微前端"><a href="#广义的微前端" class="headerlink" title="广义的微前端"></a>广义的微前端</h3><p>如果我们把微前端看作一个<strong>容器应用</strong>将各子应用结合起来。那么广义来说，我们可以按照集成方式将微前端分为两类：</p>
+<ol>
+<li>构建时集成：如webpack的Code Splitting、npm包等方式（缺陷：发布阶段的耦合，无法独立交付）</li>
+<li>运行时集成： <ol>
+<li>客户端集成：iframe、Web Components和其他复合的JS集成（如使用qiankun等微前端框架）方式</li>
+<li>服务端集成：如 SSR 拼装模板，React18支持的<a href="https://github.com/reactwg/react-18/discussions/37" target="_blank" rel="noopener">Streaming HTML和Selective Hydration</a></li>
+</ol>
+</li>
+</ol>
+<p>接下来我们主要讨论的是<strong>运行时</strong>使用<strong>JS集成</strong>场景下的微前端，其他的集成方式选型可以参考<a href="https://zhuanlan.zhihu.com/p/96464401#:~:text=%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84%E4%B8%AD%E4%B8%80%E8%88%AC%E4%BC%9A%E6%9C%89%E4%B8%AA%E5%AE%B9%E5%99%A8%E5%BA%94%E7%94%A8%EF%BC%88container%20application%EF%BC%89%E5%B0%86%E5%90%84%E5%AD%90%E5%BA%94%E7%94%A8%E9%9B%86%E6%88%90%E8%B5%B7%E6%9D%A5" target="_blank" rel="noopener">这篇文章</a>。</p>
+<h3 id="应用场景"><a href="#应用场景" class="headerlink" title="应用场景"></a>应用场景</h3><p>得益于微前端<strong>拆解</strong>的特性，目前多用于复杂的web应用/web站点（如：中后台页面、阿里云页面、figma插件系统）。但由于其潜在的加载性能问题，多用于对网络资源不敏感的应用。</p>
+<p>在云音乐中，内部应用（如：cms后台）、B端应用（如：创作者中心）都是比较适合落地微前端的场景。</p>
+<p>在以下场景中我们可以应用这项技术：</p>
+<ol>
+<li>增量升级：允许渐进式重构。在历史系统中会存在一些过时的技术，而在新业务中使用这些技术会造成开发效率的降低。如：一些老的 cms 中使用 regular 框架，而现在云音乐的新业务都使用 react 进行开发。</li>
+<li>独立部署：缩小单应用功能范围，降低变更风险，提升部署效率。随着业务中需求的堆积，单体应用代码量增加，构建时间也会增加，造成每次部署的长时间的等待。如：平台 cms 中存在 200+个页面。</li>
+<li>团队自治：围绕业务功能纵向组建团队，而不是基于技术职能划分。一个业务中遇到的能力可能由不同团队来维护，使用同一个仓库会造成开发流程上的混乱；另一方面，同一个中台能力也可能提供给不同的业务方。如：用户中台 cms 提供了面向不同业务（心遇、云音乐）的用户管理能力。</li>
+</ol>
+<h3 id="微前端体系"><a href="#微前端体系" class="headerlink" title="微前端体系"></a>微前端体系</h3><p><img src="https://p6.music.126.net/obj/wonDlsKUwrLClGjCm8Kx/11414823066/584d/ed01/1e73/ab6bcd7eaa07b41d4b3137062fd099c7.png" alt="components"></p>
+<p><a href="https://mp.weixin.qq.com/s/D7vidJrA9v_Qx3zSFoNbOQ" target="_blank" rel="noopener">字节的这篇文章</a>提到了<strong>微前端体系</strong>：为了在企业级的业务中落地微前端，我们需要的不仅仅是一个<strong>微前端框架</strong>，而是一整套覆盖开发流程的完整体系。它包括：</p>
+<h4 id="治理体系"><a href="#治理体系" class="headerlink" title="治理体系"></a>治理体系</h4><p>管理平台 &amp; 发布流程</p>
+<ul>
+<li>应用管理：主子应用版本管理，入口地址</li>
+<li>依赖管理：主子应用间的依赖关系</li>
+</ul>
+<h4 id="开发配套"><a href="#开发配套" class="headerlink" title="开发配套"></a>开发配套</h4><p>开发工具 &amp; 流程</p>
+<ul>
+<li>流程文档</li>
+<li>集成联调：主应用独立调试、子应用独立调试、主子应用联合调试的方式</li>
+</ul>
+<h4 id="运行时容器"><a href="#运行时容器" class="headerlink" title="运行时容器"></a>运行时容器</h4><p>微前端框架、iframe、web component…</p>
+<ul>
+<li><p>应用加载</p>
+<ul>
+<li>入口文件格式：JS &amp; HTML</li>
+<li>入口的注入方式：构建时注入 &amp; 运行时注入</li>
+</ul>
+</li>
+<li><p>生命周期 - 加载 / 挂载 / 更新 / 卸载</p>
+<ul>
+<li>加载：请求资源</li>
+<li>挂载：初始化</li>
+<li>更新：路由变化、主子应用双向通信</li>
+<li>卸载：清理</li>
+</ul>
+</li>
+<li><p>沙箱隔离</p>
+<ul>
+<li><p>JS隔离</p>
+<ul>
+<li><p>snapshot：子应用挂载时对window进行快照，子应用卸载时恢复快照</p>
+</li>
+<li><p>wasm VM：子应用放在wasm的js解释器中执行（隔离过于严格，通信开销大）</p>
+</li>
+<li><p><a href="https://mp.weixin.qq.com/s/D7vidJrA9v_Qx3zSFoNbOQ#:~:text=Function(code)%20%2B%20Proxy-,with%20%E8%AF%AD%E6%B3%95%E7%94%A8%E4%BA%8E%E6%94%B9%E5%8F%98%E4%BD%9C%E7%94%A8%E5%9F%9F%E9%93%BE,-%EF%BC%8C%E8%BF%99%E9%87%8C%E7%94%A8%E6%9D%A5" target="_blank" rel="noopener">with() + new Function(code) + Proxy</a></p>
+<ul>
+<li>with()：改变作用域，拦截对全局变量的查找。</li>
+<li>new Function(code)：只能访问全局作用域（于此相对，eval可以访问局部变量）</li>
+<li>Proxy：对document、history、location的操作做劫持</li>
+</ul>
+</li>
+<li><p>with() + new Function(code) + Proxy + iframe</p>
+<ul>
+<li>其他与上面一致，但是取iframe的window解决了上面对windows浅拷贝导致的全局API逃逸问题</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>CSS隔离</p>
+<ul>
+<li>切换应用时卸载（同一时刻应用间CSS还是会互相干扰）</li>
+<li>shadow dom<ul>
+<li>严格隔离了主子应用CSS。但是无法解决所有问题，如：弹窗无法应用子应用样式</li>
+<li>hack：在document.body上的插入也应用shadow dom，并同步css。但是还有一些难以解决的问题：1. 两个shadow dom间样式的双向同步；2. css in js的动态插入；3. 插入dom其他位置难以劫持</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>路由同步</p>
+<ul>
+<li>主子应用共享浏览器历史，<strong>主子应用</strong>都<strong>能够</strong>操控和响应路由<ul>
+<li>history模式<ul>
+<li>主响应子：劫持子应用history.pushState，主应用接收通知后replaceState。<a href="https://juejin.cn/post/6847902217945481224#:~:text=%E8%B7%AF%E7%94%B1%E9%80%BB%E8%BE%91%E3%80%82-,%E5%AD%90%E5%BA%94%E7%94%A8%E8%B7%AF%E7%94%B1%E5%90%8C%E6%AD%A5%E5%9B%9E%E4%B8%BB%E5%BA%94%E7%94%A8,-%E4%B8%BB%E5%BA%94%E7%94%A8%E6%A0%B9%E6%8D%AE" target="_blank" rel="noopener">参考</a></li>
+<li>子响应主：劫持子应用popstate事件的监听，主应用路由变化后主动触发。<a href="https://juejin.cn/post/6991409477685624839#:~:text=DOM%20%E7%9A%84%E5%88%86%E6%9E%90%EF%BC%8C-,%E5%BE%AE%E5%BA%94%E7%94%A8%E6%98%AF%E9%80%9A%E8%BF%87%E4%B8%8B%E9%9D%A2%E4%B8%A4%E7%A7%8D%E6%96%B9%E5%BC%8F%E5%8C%B9%E9%85%8D%E5%AF%B9%E5%BA%94%E9%A1%B5%E9%9D%A2%E7%9A%84,-%E3%80%82" target="_blank" rel="noopener">参考</a></li>
+</ul>
+</li>
+<li>hash模式<ul>
+<li>响应hashchange事件</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>子应用</strong>能<strong>正确</strong>操控和响应路由（通过微前端访问和独立访问时子应用页面的url不同）</li>
+</ul>
+</li>
+<li><p>应用通信</p>
+<ul>
+<li>主子应用通信</li>
+</ul>
+</li>
+<li><p>异常处理</p>
+<ul>
+<li>加载失败，路由匹配失败…</li>
+</ul>
+</li>
+</ul>
+<h4 id="微物料"><a href="#微物料" class="headerlink" title="微物料"></a>微物料</h4><p>应用的拆分粒度 &amp; 加载方式。具体的分类可见<a href="https://mp.weixin.qq.com/s/D7vidJrA9v_Qx3zSFoNbOQ#:~:text=%E5%9C%A8%E8%BF%99%E4%B8%AA%E5%9C%BA%E6%99%AF%E4%B8%8B%EF%BC%8C%E7%AE%80%E5%8D%95%E5%8C%BA%E5%88%86%E4%B8%8B%E7%9B%AE%E5%89%8D%E8%BF%99%E5%87%A0%E4%B8%AA%E7%A7%B0%E5%91%BC%E7%9A%84%E8%BE%B9%E7%95%8C" target="_blank" rel="noopener">这里</a>。</p>
+<h3 id="问题-难点"><a href="#问题-难点" class="headerlink" title="问题 / 难点"></a>问题 / 难点</h3><h4 id="载入速度"><a href="#载入速度" class="headerlink" title="载入速度"></a>载入速度</h4><h5 id="流量负担（公共资源）"><a href="#流量负担（公共资源）" class="headerlink" title="流量负担（公共资源）"></a>流量负担（公共资源）</h5><p>重复加载公共资源是微前端的隔离中附带的问题。微前端降低了耦合度，但提取公共资源以统一处理又会增加微应用间耦合度。</p>
+<ul>
+<li><p><a href="https://zhuanlan.zhihu.com/p/96464401#:~:text=%E4%BC%9A%E7%A0%B4%E5%9D%8F%E5%8D%8F%E4%BD%9C-,%E6%B5%81%E9%87%8F%E8%B4%9F%E6%8B%85,-%E7%8B%AC%E7%AB%8B%E6%9E%84%E5%BB%BA" target="_blank" rel="noopener">公共依赖</a>：主子应用间、子应用间的公共资源，如：公共组件的JS、CSS，公共的错误、性能监控、埋点功能的代码。（解决方案：如使用html的external JavaScript，webpack5的module federation）</p>
+</li>
+<li><p>请求资源：在微前端中，主子应用经常会请求同一个接口，在首次加载时，实际上请求返回数据相同，需要避免重复请求带来的开销。（解决方案：如使用<a href="https://swr.vercel.app/zh-CN" target="_blank" rel="noopener">SWR</a>缓存请求结果，主应用使用props向子应用传递请求结果）</p>
+</li>
+</ul>
+<h5 id="加载链路"><a href="#加载链路" class="headerlink" title="加载链路"></a>加载链路</h5><p>为了便于对依赖进行管理，通常我们会动态下发子应用配置而非在构建时注入，这也一定程度上延长了资源加载的链路，进而降低了页面加载速度。</p>
+<h4 id="管理-、操作的复杂性"><a href="#管理-、操作的复杂性" class="headerlink" title="管理 、操作的复杂性"></a>管理 、操作的复杂性</h4><ul>
+<li>交付流程如何支持多应用（依赖管理，版本控制） </li>
+<li>质量保障（问题定位，独立发布的质量把控，开发规范）</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/09/24/rn-nested-scroll/" rel="prev" title="RN嵌套滑动">
+      <i class="fa fa-chevron-left"></i> RN嵌套滑动
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/12/05/react-18/" rel="next" title="React 18前瞻">
+      React 18前瞻 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#定义"><span class="nav-number">2.</span> <span class="nav-text">定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#例子"><span class="nav-number">3.</span> <span class="nav-text">例子</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#广义的微前端"><span class="nav-number">4.</span> <span class="nav-text">广义的微前端</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#应用场景"><span class="nav-number">5.</span> <span class="nav-text">应用场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#微前端体系"><span class="nav-number">6.</span> <span class="nav-text">微前端体系</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#治理体系"><span class="nav-number">6.1.</span> <span class="nav-text">治理体系</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#开发配套"><span class="nav-number">6.2.</span> <span class="nav-text">开发配套</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#运行时容器"><span class="nav-number">6.3.</span> <span class="nav-text">运行时容器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#微物料"><span class="nav-number">6.4.</span> <span class="nav-text">微物料</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#问题-难点"><span class="nav-number">7.</span> <span class="nav-text">问题 &#x2F; 难点</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#载入速度"><span class="nav-number">7.1.</span> <span class="nav-text">载入速度</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#流量负担（公共资源）"><span class="nav-number">7.1.1.</span> <span class="nav-text">流量负担（公共资源）</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#加载链路"><span class="nav-number">7.1.2.</span> <span class="nav-text">加载链路</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#管理-、操作的复杂性"><span class="nav-number">7.2.</span> <span class="nav-text">管理 、操作的复杂性</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Zile GUO</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">12</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">categories</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">tags</span>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Zile GUO</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>
